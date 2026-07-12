@@ -12,7 +12,7 @@ export function useLogin() {
       authApi.login(email, password),
     onSuccess: (data) => {
       login(data.token, data.user);
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     },
   });
 }

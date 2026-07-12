@@ -1,7 +1,9 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../hooks';
+import rapidLogo from '../../../assets/new-rapid-logo.png';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -11,6 +13,7 @@ const schema = z.object({
 type LoginFormValues = z.infer<typeof schema>;
 
 export function LoginPage() {
+  const navigate = useNavigate();
   const {
     register,
     handleSubmit,
@@ -25,7 +28,6 @@ export function LoginPage() {
     login(data);
   };
 
-  // Extract a readable error message if possible
   const apiError = error as any;
   const loginErrorMessage =
     apiError?.response?.data?.message ||
@@ -33,121 +35,282 @@ export function LoginPage() {
     'Invalid credentials';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-gray-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none" />
+    <>
+      <style>{`
+        .auth-page-container {
+          min-height: 100vh;
+          background-color: #F9FAFB;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          overflow-x: hidden;
+          position: relative;
+          padding: 60px 0;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
 
-      {/* Login Card */}
-      <div className="bg-gray-900/60 backdrop-blur-xl border border-gray-800 rounded-2xl p-8 w-full max-w-md shadow-2xl relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 text-3xl shadow-lg shadow-brand-500/20 mb-4 animate-pulse">
-            🚌
+        /* Vertical grid lines extending through the full screen height */
+        .grid-v-line {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background-color: #E2E8F0;
+          pointer-events: none;
+        }
+        .grid-v-line-left {
+          left: calc(50% - 230px);
+        }
+        .grid-v-line-right {
+          left: calc(50% + 230px);
+        }
+
+        .auth-center-column {
+          width: 460px;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          z-index: 10;
+        }
+
+        .auth-row {
+          width: 100%;
+          position: relative;
+          box-sizing: border-box;
+        }
+
+        /* Horizontal grid lines extending screen-wide */
+        .grid-h-line {
+          position: absolute;
+          left: -100vw;
+          right: -100vw;
+          height: 1px;
+          background-color: #E2E8F0;
+          pointer-events: none;
+        }
+
+        /* Monospace intersection plus symbol style */
+        .grid-plus {
+          position: absolute;
+          font-size: 13px;
+          color: #94A3B8;
+          background-color: #F9FAFB;
+          width: 11px;
+          height: 11px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: monospace;
+          line-height: 1;
+          z-index: 20;
+          pointer-events: none;
+          user-select: none;
+        }
+
+        .grid-plus-tl { top: -6px; left: -5px; }
+        .grid-plus-tr { top: -6px; right: -5px; }
+        .grid-plus-bl { bottom: -6px; left: -5px; }
+        .grid-plus-br { bottom: -6px; right: -5px; }
+
+        /* Form styling */
+        .auth-label {
+          display: block;
+          font-size: 13px;
+          font-weight: 500;
+          color: #374151;
+          margin-bottom: 6px;
+        }
+
+        .auth-input {
+          width: 100%;
+          border: 1px solid #D1D5DB;
+          border-radius: 9999px;
+          padding: 11px 20px;
+          background: #FFFFFF;
+          color: #0F172A;
+          font-size: 14px;
+          outline: none;
+          box-sizing: border-box;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .auth-input:focus {
+          border-color: #FF540E;
+          box-shadow: 0 0 0 3px rgba(255, 84, 14, 0.15);
+        }
+
+        .auth-input::placeholder {
+          color: #9CA3AF;
+        }
+
+        .auth-button-submit {
+          width: 100%;
+          background: #FF540E;
+          color: #FFFFFF;
+          border-radius: 9999px;
+          border: none;
+          padding: 12.5px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.1s;
+          margin-top: 8px;
+        }
+
+        .auth-button-submit:hover:not(:disabled) {
+          background: #E04300;
+        }
+
+        .auth-button-submit:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+
+        .auth-button-submit:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .auth-footnote {
+          font-size: 11.5px;
+          color: #94A3B8;
+          text-align: center;
+          line-height: 1.5;
+        }
+
+        .auth-footnote a {
+          color: #64748B;
+          text-decoration: underline;
+          transition: color 0.15s;
+        }
+
+        .auth-footnote a:hover {
+          color: #0F172A;
+        }
+      `}</style>
+
+      <div className="auth-page-container">
+        {/* Full-height vertical grid lines */}
+        <div className="grid-v-line grid-v-line-left" />
+        <div className="grid-v-line grid-v-line-right" />
+
+        <div className="auth-center-column">
+          {/* Row 1: Logo */}
+          <div className="auth-row" style={{ padding: '16px 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div className="grid-h-line" style={{ top: 0 }} />
+            <div className="grid-plus grid-plus-tl">+</div>
+            <div className="grid-plus grid-plus-tr">+</div>
+
+             <div style={{ display: 'flex', alignItems: 'center' }}>
+               <img src={rapidLogo} alt="Swift" style={{ height: '130px', objectFit: 'contain' }} />
+             </div>
+
+            <div className="grid-h-line" style={{ bottom: 0 }} />
+            <div className="grid-plus grid-plus-bl">+</div>
+            <div className="grid-plus grid-plus-br">+</div>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">
-            Swift
-          </h1>
-          <p className="text-gray-400 text-sm mt-2">
-            Fleet Operations Management Platform
-          </p>
-        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-              Email Address
-            </label>
-            <input
-              {...register('email')}
-              type="email"
-              placeholder="fleet@transitops.com"
-              className="w-full bg-gray-950/80 border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-500 transition-colors placeholder:text-gray-600"
-            />
-            {errors.email && (
-              <p className="text-rose-500 text-xs mt-1.5 ml-1">
-                ⚠️ {errors.email.message}
-              </p>
+          {/* Row 2: Title Header */}
+          <div className="auth-row" style={{ padding: '24px 40px', textAlign: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0F172A' }}>Log In</h2>
+            <div className="grid-h-line" style={{ bottom: 0 }} />
+            <div className="grid-plus grid-plus-bl">+</div>
+            <div className="grid-plus grid-plus-br">+</div>
+          </div>
+
+          {/* Row 3: Credentials Form */}
+          <div className="auth-row" style={{ padding: '36px 40px' }}>
+            {error && (
+              <div style={{
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.25)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '20px',
+                fontSize: '13px',
+                color: '#EF4444',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+              }}>
+                <span style={{ marginTop: '1.5px' }}>⚠️</span>
+                <span>{loginErrorMessage}</span>
+              </div>
             )}
+
+            <form onSubmit={handleSubmit(onSubmit)} id="auth-form">
+              <div style={{ marginBottom: '18px' }}>
+                <label className="auth-label">Email Address</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  className="auth-input"
+                  placeholder="name@example.com"
+                  {...register('email')}
+                  autoComplete="email"
+                />
+                {errors.email && (
+                  <p style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px', marginLeft: '12px' }}>
+                    ⚠️ {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label className="auth-label">Password</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  className="auth-input"
+                  placeholder="••••••••"
+                  {...register('password')}
+                  autoComplete="current-password"
+                />
+                {errors.password && (
+                  <p style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px', marginLeft: '12px' }}>
+                    ⚠️ {errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              <button
+                id="btn-auth-submit"
+                type="submit"
+                className="auth-button-submit"
+                disabled={isPending}
+              >
+                {isPending ? 'Signing in...' : 'Log In'}
+              </button>
+            </form>
+
+            <div className="grid-h-line" style={{ bottom: 0 }} />
+            <div className="grid-plus grid-plus-bl">+</div>
+            <div className="grid-plus grid-plus-br">+</div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-              Password
-            </label>
-            <input
-              {...register('password')}
-              type="password"
-              placeholder="••••••••"
-              className="w-full bg-gray-950/80 border border-gray-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-500 transition-colors placeholder:text-gray-600"
-            />
-            {errors.password && (
-              <p className="text-rose-500 text-xs mt-1.5 ml-1">
-                ⚠️ {errors.password.message}
-              </p>
-            )}
-          </div>
 
-          {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-rose-400 text-sm text-center">
-              {loginErrorMessage}
+
+          {/* Row 5: Footer & Credentials Demo */}
+          <div className="auth-row" style={{ padding: '24px 40px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="auth-footnote">
+              By logging in, you agree to our <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>.
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={isPending}
-            className="w-full bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white py-3.5 rounded-xl text-sm font-semibold tracking-wider uppercase transition-all shadow-lg shadow-brand-500/20 hover:shadow-brand-500/35 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
-          >
-            {isPending ? (
-              <>
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Signing in...
-              </>
-            ) : (
-              'Sign In'
-            )}
-          </button>
-        </form>
+            <div className="auth-footnote" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
+              For testing (password: <code>password123</code>):
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '8px' }}>
+                <span style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 6px', fontSize: '10px', color: '#334155' }}>fleet@transitops.com</span>
+                <span style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 6px', fontSize: '10px', color: '#334155' }}>driver@transitops.com</span>
+                <span style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 6px', fontSize: '10px', color: '#334155' }}>safety@transitops.com</span>
+                <span style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 6px', fontSize: '10px', color: '#334155' }}>finance@transitops.com</span>
+              </div>
+            </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-800/60 text-center">
-          <p className="text-xs text-gray-500">
-            For testing: <code className="text-gray-400">password123</code>
-          </p>
-          <div className="grid grid-cols-2 gap-2 mt-3 text-[10px] text-gray-400">
-            <span className="bg-gray-950/60 border border-gray-800 rounded py-1 px-1.5">
-              fleet@transitops.com
-            </span>
-            <span className="bg-gray-950/60 border border-gray-800 rounded py-1 px-1.5">
-              driver@transitops.com
-            </span>
-            <span className="bg-gray-950/60 border border-gray-800 rounded py-1 px-1.5">
-              safety@transitops.com
-            </span>
-            <span className="bg-gray-950/60 border border-gray-800 rounded py-1 px-1.5">
-              finance@transitops.com
-            </span>
+            <div className="grid-h-line" style={{ bottom: 0 }} />
+            <div className="grid-plus grid-plus-bl">+</div>
+            <div className="grid-plus grid-plus-br">+</div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
