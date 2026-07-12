@@ -51,6 +51,7 @@ coverage/
 .nyc_output/
 
 # ─── Local planning docs (not for repo) ─────────────────────────────────────
-prompt.md
+*.md
+**/*.md
 skills/
 .agents

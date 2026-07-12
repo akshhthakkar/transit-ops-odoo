@@ -41,11 +41,10 @@ import { useTrips } from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
-  { value: "in_transit", label: "In Transit" },
-  { value: "loading", label: "Loading" },
   { value: "scheduled", label: "Scheduled" },
+  { value: "in_transit", label: "In Transit" },
   { value: "completed", label: "Completed" },
-  { value: "delayed", label: "Delayed" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 function Progress({ value, status }: { value: number; status: string }) {
@@ -176,26 +175,25 @@ export function TripsView() {
           label="In Transit"
           value={trips.filter((t) => t.status === "in_transit").length}
           icon={<RouteIcon className="size-4" />}
-          delta={3}
+          delta={2}
           deltaLabel="vs yesterday"
         />
         <StatCard
-          label="Scheduled / Loading"
-          value={trips.filter((t) => t.status === "scheduled" || t.status === "loading").length}
-          icon={<Clock className="size-4" />}
-          delta={-2}
-          deltaLabel="vs yesterday"
-        />
-        <StatCard
-          label="Delayed"
-          value={trips.filter((t) => t.status === "delayed").length}
+          label="Scheduled"
+          value={trips.filter((t) => t.status === "scheduled").length}
           icon={<Clock className="size-4" />}
           delta={1}
-          invertDelta
-          deltaLabel="needs attention"
+          deltaLabel="vs yesterday"
         />
         <StatCard
-          label="Revenue (active)"
+          label="Completed"
+          value={trips.filter((t) => t.status === "completed").length}
+          icon={<Clock className="size-4" />}
+          delta={3}
+          deltaLabel="completed total"
+        />
+        <StatCard
+          label="Revenue"
           value={formatCurrency(todayRevenue, true)}
           icon={<Package className="size-4" />}
           delta={5.4}

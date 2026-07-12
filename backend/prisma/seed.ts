@@ -120,47 +120,125 @@ async function main() {
 
   console.log('✅ Vehicles seeded:', vehicles.map(v => v.registrationNumber));
 
-  // ── Locations (3) ────────────────────────────────────────────────────────
-  const locations = await Promise.all([
-    prisma.location.upsert({
-      where: { name: 'Main Depot' },
-      update: {},
-      create: { name: 'Main Depot', address: '123 Logistics Way, New York, NY' },
-    }),
-    prisma.location.upsert({
-      where: { name: 'South Terminal' },
-      update: {},
-      create: { name: 'South Terminal', address: '456 Port Road, Houston, TX' },
-    }),
-    prisma.location.upsert({
-      where: { name: 'West Hub' },
-      update: {},
-      create: { name: 'West Hub', address: '789 Highway 10, Los Angeles, CA' },
-    }),
-  ]);
+  // ── Trips, Fuel, Maintenance, & Expense Mock Data (Phase 5 Analytics) ────────
+  console.log('🌱 Seeding trips, fuel logs, and expenses...');
 
-  console.log('✅ Locations seeded:', locations.map(l => l.name));
+  // User attribution references
+  const creatorId = fleetMgr.id;
 
-  // ── Vendors (3) ──────────────────────────────────────────────────────────
-  const vendors = await Promise.all([
-    prisma.vendor.upsert({
-      where: { name: 'FleetCare Mechanics' },
-      update: {},
-      create: { name: 'FleetCare Mechanics', contactInfo: 'info@fleetcare.com' },
-    }),
-    prisma.vendor.upsert({
-      where: { name: 'Tire World' },
-      update: {},
-      create: { name: 'Tire World', contactInfo: 'sales@tireworld.com' },
-    }),
-    prisma.vendor.upsert({
-      where: { name: 'Metro Fuel Station' },
-      update: {},
-      create: { name: 'Metro Fuel Station', contactInfo: 'metro@fuel.com' },
-    }),
-  ]);
+  // Seed completed trips (this sets values in reports without locking assets)
+  const trip1 = await prisma.trip.create({
+    data: {
+      tripNumber: 'TRP-101-UUID',
+      source: 'Main Depot',
+      destination: 'South Terminal',
+      vehicleId: vehicles[0].id, // VAN-01
+      driverId: drivers[0].id, // Alex Johnson
+      cargoWeight: 600,
+      plannedDistance: 320.0,
+      actualDistance: 325.5,
+      startingOdometer: 12000.0,
+      endingOdometer: 12325.5,
+      fuelConsumed: 48.2,
+      revenue: 950.0,
+      status: 'COMPLETED',
+      dispatchedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+      completedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000),
+      createdById: creatorId,
+    }
+  });
 
-  console.log('✅ Vendors seeded:', vendors.map(v => v.name));
+  const trip2 = await prisma.trip.create({
+    data: {
+      tripNumber: 'TRP-102-UUID',
+      source: 'South Terminal',
+      destination: 'West Hub',
+      vehicleId: vehicles[2].id, // TRK-01
+      driverId: drivers[1].id, // Maria Garcia
+      cargoWeight: 4200,
+      plannedDistance: 450.0,
+      actualDistance: 450.0,
+      startingOdometer: 45000.0,
+      endingOdometer: 45450.0,
+      fuelConsumed: 95.0,
+      revenue: 1450.0,
+      status: 'COMPLETED',
+      dispatchedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 6 * 60 * 60 * 1000),
+      createdById: creatorId,
+    }
+  });
+
+  // Seed Fuel logs for trips
+  await prisma.fuelLog.create({
+    data: {
+      vehicleId: vehicles[0].id,
+      tripId: trip1.id,
+      liters: 48.2,
+      pricePerLiter: 1.85,
+      cost: 89.17, // 48.2 * 1.85
+      odometer: 12325.5,
+      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      createdById: creatorId,
+    }
+  });
+
+  await prisma.fuelLog.create({
+    data: {
+      vehicleId: vehicles[2].id,
+      tripId: trip2.id,
+      liters: 95.0,
+      pricePerLiter: 1.90,
+      cost: 180.50,
+      odometer: 45450.0,
+      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      createdById: creatorId,
+    }
+  });
+
+  // Seed maintenance record & lock vehicle 2 (VAN-02) into IN_SHOP status
+  await prisma.maintenanceLog.create({
+    data: {
+      vehicleId: vehicles[1].id, // VAN-02
+      cost: 320.0,
+      maintenanceType: 'Brake Service',
+      description: 'Rear brake pads replaced during scheduled service',
+      status: 'ACTIVE',
+      startedAt: new Date(),
+      createdById: creatorId,
+    }
+  });
+
+  await prisma.vehicle.update({
+    where: { id: vehicles[1].id },
+    data: { status: 'IN_SHOP' }
+  });
+
+  // Create general Expenses (tolls and parts)
+  await prisma.expense.create({
+    data: {
+      vehicleId: vehicles[0].id,
+      tripId: trip1.id,
+      type: 'TOLL',
+      amount: 45.0,
+      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      description: 'E-ZPass NY toll charges',
+      createdById: creatorId,
+    }
+  });
+
+  await prisma.expense.create({
+    data: {
+      vehicleId: vehicles[1].id,
+      type: 'MAINTENANCE',
+      amount: 320.0,
+      date: new Date(),
+      description: 'Brake pads replacement expense invoice',
+      createdById: creatorId,
+    }
+  });
+
+  console.log('✅ Completed mock data seeded.');
 
   console.log('\n🎉 Seed complete!');
   console.log('\nLogin credentials (all use password: password123):');

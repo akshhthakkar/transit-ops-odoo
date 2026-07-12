@@ -12,7 +12,6 @@ import { TripsView } from "@/components/transitops/views/trips-view";
 import { MaintenanceView } from "@/components/transitops/views/maintenance-view";
 import { ExpensesView } from "@/components/transitops/views/expenses-view";
 import { AnalyticsView } from "@/components/transitops/views/analytics-view";
-import { AlertsView } from "@/components/transitops/views/alerts-view";
 
 export default function DashboardPage() {
   const { active } = useNav();
@@ -42,7 +41,6 @@ export default function DashboardPage() {
       {active === "maintenance" && <MaintenanceView />}
       {active === "expenses" && <ExpensesView />}
       {active === "analytics" && <AnalyticsView />}
-      {active === "alerts" && <AlertsView />}
     </AppShell>
   );
 }

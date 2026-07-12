@@ -39,7 +39,6 @@ export const navGroups: NavGroup[] = [
     items: [
       { key: "expenses", label: "Expenses", icon: Receipt },
       { key: "analytics", label: "Analytics", icon: BarChart3 },
-      { key: "alerts", label: "Alerts", icon: TriangleAlert, badge: 6 },
     ],
   },
 ];

@@ -9,9 +9,6 @@ export const maintenanceService = {
         vehicle: {
           select: { id: true, registrationNumber: true, name: true, status: true },
         },
-        vendor: {
-          select: { id: true, name: true },
-        },
       },
       orderBy: { startedAt: 'desc' },
     });
@@ -22,7 +19,6 @@ export const maintenanceService = {
       where: { id, deletedAt: null },
       include: {
         vehicle: true,
-        vendor: true,
       },
     });
   },
@@ -32,7 +28,6 @@ export const maintenanceService = {
       vehicleId: string;
       maintenanceType?: string;
       description: string;
-      vendorId?: string;
       priority?: string;
       cost: number;
     },
@@ -50,13 +45,6 @@ export const maintenanceService = {
       throw Object.assign(new Error('Cannot send a vehicle currently on a trip to maintenance'), { statusCode: 400 });
     }
 
-    if (data.vendorId) {
-      const vendor = await prisma.vendor.findUnique({ where: { id: data.vendorId } });
-      if (!vendor) {
-        throw Object.assign(new Error('Vendor not found'), { statusCode: 404 });
-      }
-    }
-
     return prisma.$transaction(async (tx) => {
       // Create maintenance log
       const log = await tx.maintenanceLog.create({
@@ -64,13 +52,12 @@ export const maintenanceService = {
           vehicleId: data.vehicleId,
           maintenanceType: data.maintenanceType,
           description: data.description,
-          vendorId: data.vendorId,
           priority: data.priority,
           cost: data.cost,
           status: 'ACTIVE',
           createdById: reqUser.id,
         },
-        include: { vehicle: true, vendor: true },
+        include: { vehicle: true },
       });
 
       // Update vehicle status
@@ -105,7 +92,7 @@ export const maintenanceService = {
           closedAt: new Date(),
           updatedById: reqUser.id,
         },
-        include: { vehicle: true, vendor: true },
+        include: { vehicle: true },
       });
 
       // Update vehicle status back to AVAILABLE unless it is RETIRED

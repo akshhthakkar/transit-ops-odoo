@@ -33,12 +33,9 @@ export const fuelExpenseService = {
           select: {
             id: true,
             tripNumber: true,
-            sourceLocation: { select: { name: true } },
-            destinationLocation: { select: { name: true } },
+            source: true,
+            destination: true,
           },
-        },
-        vendor: {
-          select: { id: true, name: true },
         },
       },
       orderBy: { date: 'desc' },
@@ -52,7 +49,6 @@ export const fuelExpenseService = {
       liters: number;
       pricePerLiter?: number;
       cost: number;
-      vendorId?: string;
       odometer?: number;
       date?: string;
     },
@@ -91,14 +87,6 @@ export const fuelExpenseService = {
       }
     }
 
-    // Validate vendor
-    if (data.vendorId) {
-      const vendor = await prisma.vendor.findUnique({ where: { id: data.vendorId } });
-      if (!vendor) {
-        throw Object.assign(new Error('Vendor not found'), { statusCode: 404 });
-      }
-    }
-
     return prisma.fuelLog.create({
       data: {
         vehicleId: data.vehicleId,
@@ -106,12 +94,11 @@ export const fuelExpenseService = {
         liters: data.liters,
         pricePerLiter: data.pricePerLiter,
         cost: data.cost,
-        vendorId: data.vendorId,
         odometer: data.odometer,
         date: data.date ? new Date(data.date) : undefined,
         createdById: reqUser.id,
       },
-      include: { vehicle: true, trip: true, vendor: true },
+      include: { vehicle: true, trip: true },
     });
   },
 
@@ -150,8 +137,8 @@ export const fuelExpenseService = {
           select: {
             id: true,
             tripNumber: true,
-            sourceLocation: { select: { name: true } },
-            destinationLocation: { select: { name: true } },
+            source: true,
+            destination: true,
           },
         },
       },

@@ -48,8 +48,6 @@ export const tripService = {
           driver: {
             select: { id: true, name: true },
           },
-          sourceLocation: true,
-          destinationLocation: true,
         },
       }),
     ]);
@@ -71,8 +69,6 @@ export const tripService = {
       include: {
         vehicle: true,
         driver: true,
-        sourceLocation: true,
-        destinationLocation: true,
         fuelLogs: {
           where: { deletedAt: null },
         },
@@ -92,23 +88,13 @@ export const tripService = {
   },
 
   async create(data: {
-    sourceLocationId: string;
-    destinationLocationId: string;
+    source: string;
+    destination: string;
     vehicleId: string;
     driverId: string;
     cargoWeight: number;
     plannedDistance: number;
   }) {
-    const sourceLoc = await prisma.location.findUnique({ where: { id: data.sourceLocationId } });
-    if (!sourceLoc) {
-      throw Object.assign(new Error('Source location not found'), { statusCode: 404 });
-    }
-
-    const destLoc = await prisma.location.findUnique({ where: { id: data.destinationLocationId } });
-    if (!destLoc) {
-      throw Object.assign(new Error('Destination location not found'), { statusCode: 404 });
-    }
-
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: data.vehicleId, deletedAt: null },
     });
@@ -140,7 +126,12 @@ export const tripService = {
 
     return prisma.trip.create({
       data: {
-        ...data,
+        source: data.source,
+        destination: data.destination,
+        vehicleId: data.vehicleId,
+        driverId: data.driverId,
+        cargoWeight: data.cargoWeight,
+        plannedDistance: data.plannedDistance,
         status: 'DRAFT',
       },
     });
@@ -154,11 +145,11 @@ export const tripService = {
       if (!trip) {
         throw Object.assign(new Error('Trip not found'), { statusCode: 404 });
       }
+      verifyOwnership(trip.driverId, reqUser);
+
       if (trip.status !== 'DRAFT') {
         throw Object.assign(new Error(`Trip is not in DRAFT state (current state: ${trip.status})`), { statusCode: 400 });
       }
-
-      verifyOwnership(trip.driverId, reqUser);
 
       // Verify availability fresh inside the transaction
       const vehicle = await tx.vehicle.findFirst({
@@ -213,11 +204,11 @@ export const tripService = {
       if (!trip) {
         throw Object.assign(new Error('Trip not found'), { statusCode: 404 });
       }
+      verifyOwnership(trip.driverId, reqUser);
+
       if (trip.status !== 'DISPATCHED') {
         throw Object.assign(new Error(`Trip is not active (current state: ${trip.status})`), { statusCode: 400 });
       }
-
-      verifyOwnership(trip.driverId, reqUser);
 
       // Update vehicle odometer and availability
       const vehicle = await tx.vehicle.findUnique({
@@ -262,11 +253,11 @@ export const tripService = {
       if (!trip) {
         throw Object.assign(new Error('Trip not found'), { statusCode: 404 });
       }
+      verifyOwnership(trip.driverId, reqUser);
+
       if (trip.status !== 'DISPATCHED') {
         throw Object.assign(new Error('A draft trip should be edited or deleted. Only dispatched trips can be cancelled.'), { statusCode: 400 });
       }
-
-      verifyOwnership(trip.driverId, reqUser);
 
       // Revert vehicle status
       await tx.vehicle.update({

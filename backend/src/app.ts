@@ -37,15 +37,7 @@ app.use('/api/maintenance', maintenanceRouter);
 app.use('/api/fuel',        fuelExpenseRouter);
 app.use('/api/reports',     reportsRouter);
 
-app.get('/api/locations', authenticate, asyncHandler(async (_req, res) => {
-  const locations = await prisma.location.findMany({ orderBy: { name: 'asc' } });
-  res.json(locations);
-}));
-
-app.get('/api/vendors', authenticate, asyncHandler(async (_req, res) => {
-  const vendors = await prisma.vendor.findMany({ orderBy: { name: 'asc' } });
-  res.json(vendors);
-}));
+// Locations and Vendors lookups removed as scope creep
 
 // ── Centralized error handler (must be last) ─────────────────────────────────
 app.use(errorMiddleware);

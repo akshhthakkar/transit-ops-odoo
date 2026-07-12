@@ -24,6 +24,7 @@ const createVehicleSchema = z.object({
     .string()
     .optional()
     .transform(val => val?.trim() || null),
+  odometer: z.number().nonnegative('Odometer reading must be positive or zero').optional(),
 });
 
 const updateVehicleSchema = createVehicleSchema.partial().extend({

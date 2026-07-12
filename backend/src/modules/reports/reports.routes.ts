@@ -9,8 +9,9 @@ export const reportsRouter = Router();
 reportsRouter.use(authenticate);
 reportsRouter.use(requireRole('FLEET_MANAGER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'));
 
-// GET /api/reports/dashboard   — KPI tiles
+// GET /api/reports/dashboard / /api/reports/summary — KPI tiles
 reportsRouter.get('/dashboard', asyncHandler(reportsController.getDashboard));
+reportsRouter.get('/summary', asyncHandler(reportsController.getDashboard));
 
 // GET /api/reports/vehicles    — per-vehicle cost, efficiency, utilization
 reportsRouter.get('/vehicles', asyncHandler(reportsController.getVehicleReport));

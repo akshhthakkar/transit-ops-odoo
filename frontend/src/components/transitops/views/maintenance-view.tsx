@@ -41,9 +41,7 @@ import { useMaintenance } from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
-  { value: "scheduled", label: "Scheduled" },
   { value: "in_progress", label: "In Progress" },
-  { value: "overdue", label: "Overdue" },
   { value: "completed", label: "Completed" },
 ];
 
@@ -175,19 +173,11 @@ export function MaintenanceView() {
           deltaLabel="active jobs"
         />
         <StatCard
-          label="Overdue"
-          value={maintenance.filter((m) => m.status === "overdue").length}
-          icon={<CircleAlert className="size-4" />}
-          delta={2}
-          invertDelta
-          deltaLabel="needs action"
-        />
-        <StatCard
-          label="Scheduled"
-          value={maintenance.filter((m) => m.status === "scheduled").length}
-          icon={<CalendarClock className="size-4" />}
-          delta={-1}
-          deltaLabel="upcoming"
+          label="Closed Logs"
+          value={maintenance.filter((m) => m.status === "completed").length}
+          icon={<CircleCheck className="size-4" />}
+          delta={3}
+          deltaLabel="completed total"
         />
         <StatCard
           label="Total Cost"

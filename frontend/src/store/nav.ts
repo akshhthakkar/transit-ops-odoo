@@ -7,8 +7,7 @@ export type NavKey =
   | "trips"
   | "maintenance"
   | "expenses"
-  | "analytics"
-  | "alerts";
+  | "analytics";
 
 interface NavState {
   active: NavKey;

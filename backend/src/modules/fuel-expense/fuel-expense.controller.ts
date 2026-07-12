@@ -14,9 +14,8 @@ const createFuelLogSchema = z.object({
   liters: z.number().positive('Liters must be positive'),
   pricePerLiter: z.number().positive('Price per liter must be positive').optional().nullable().transform(v => v === null ? undefined : v),
   cost: z.number().positive('Cost must be positive'),
-  vendorId: z.string().uuid('Invalid Vendor ID').optional().nullable().transform(v => v === null ? undefined : v),
   odometer: z.number().positive('Odometer must be positive').optional().nullable().transform(v => v === null ? undefined : v),
-  date: z.string().datetime({ precision: 3 }).optional(),
+  date: z.string().datetime().optional(),
 });
 
 const createExpenseSchema = z.object({

@@ -10,8 +10,8 @@ const queryFilterSchema = z.object({
 });
 
 const createTripSchema = z.object({
-  sourceLocationId: z.string().uuid('Invalid Source Location ID'),
-  destinationLocationId: z.string().uuid('Invalid Destination Location ID'),
+  source: z.string().min(1, 'Source is required'),
+  destination: z.string().min(1, 'Destination is required'),
   vehicleId: z.string().uuid('Invalid Vehicle ID'),
   driverId: z.string().uuid('Invalid Driver ID'),
   cargoWeight: z.number().positive('Cargo weight must be positive'),

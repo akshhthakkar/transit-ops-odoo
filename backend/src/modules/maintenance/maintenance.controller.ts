@@ -6,7 +6,6 @@ const createLogSchema = z.object({
   vehicleId: z.string().uuid('Invalid Vehicle ID'),
   maintenanceType: z.string().optional(),
   description: z.string().min(1, 'Description is required'),
-  vendorId: z.string().uuid('Invalid Vendor ID').optional().nullable().transform(v => v === null ? undefined : v),
   priority: z.string().optional(),
   cost: z.number().nonnegative('Cost cannot be negative'),
 });

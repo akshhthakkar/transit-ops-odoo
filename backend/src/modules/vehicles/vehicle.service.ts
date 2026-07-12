@@ -77,9 +77,6 @@ export const vehicleService = {
           orderBy: { startedAt: 'desc' },
           take: 10,
         },
-        documents: {
-          where: { deletedAt: null },
-        },
       },
     });
   },
@@ -91,6 +88,7 @@ export const vehicleService = {
     maxLoadCapacity: number;
     acquisitionCost: number;
     region?: string | null;
+    odometer?: number;
   }) {
     const existing = await prisma.vehicle.findFirst({
       where: {

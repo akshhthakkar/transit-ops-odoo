@@ -89,9 +89,7 @@ export function mapDriver(d: any): Driver {
 function mapTripStatus(dbStatus: string): Trip["status"] {
   const map: Record<string, Trip["status"]> = {
     DRAFT: "scheduled",
-    DISPATCHED: "scheduled",
-    IN_TRANSIT: "in_transit",
-    DELAYED: "delayed",
+    DISPATCHED: "in_transit",
     COMPLETED: "completed",
     CANCELLED: "cancelled",
   };
@@ -100,8 +98,8 @@ function mapTripStatus(dbStatus: string): Trip["status"] {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapTrip(t: any): Trip {
-  const origin = t.sourceLocation?.name ?? "Unknown";
-  const destination = t.destinationLocation?.name ?? "Unknown";
+  const origin = t.source ?? "Unknown";
+  const destination = t.destination ?? "Unknown";
   return {
     id: t.id,
     route: `${origin} → ${destination}`,
@@ -119,7 +117,7 @@ export function mapTrip(t: any): Trip {
     progress:
       t.status === "COMPLETED"
         ? 100
-        : t.status === "IN_TRANSIT"
+        : t.status === "DISPATCHED"
         ? 50
         : 0,
   };
@@ -131,12 +129,10 @@ function mapMaintenanceStatus(
   dbStatus: string
 ): MaintenanceRecord["status"] {
   const map: Record<string, MaintenanceRecord["status"]> = {
-    SCHEDULED: "scheduled",
-    PENDING_PARTS: "in_progress",
     ACTIVE: "in_progress",
     CLOSED: "completed",
   };
-  return map[dbStatus] ?? "scheduled";
+  return map[dbStatus] ?? "in_progress";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,7 +144,7 @@ export function mapMaintenance(m: any): MaintenanceRecord {
     status: mapMaintenanceStatus(m.status),
     scheduled: m.startedAt?.split("T")[0] ?? "",
     cost: Number(m.cost ?? 0),
-    technician: m.vendor?.name ?? "Unassigned",
+    technician: "FleetCare Mechanics",
     description: m.description,
     priority: (m.priority?.toLowerCase() ?? "medium") as MaintenanceRecord["priority"],
   };

@@ -36,15 +36,11 @@ enum DriverStatus {
 enum TripStatus {
   DRAFT
   DISPATCHED
-  IN_TRANSIT
-  DELAYED
   COMPLETED
   CANCELLED
 }
 
 enum MaintenanceStatus {
-  SCHEDULED
-  PENDING_PARTS
   ACTIVE
   CLOSED
 }
@@ -52,14 +48,6 @@ enum MaintenanceStatus {
 enum ExpenseType {
   TOLL
   MAINTENANCE
-  OTHER
-}
-
-enum VehicleDocumentType {
-  REGISTRATION
-  INSURANCE
-  FITNESS
-  POLLUTION
   OTHER
 }
 
@@ -106,7 +94,6 @@ model Vehicle {
   maintenanceLogs    MaintenanceLog[]
   fuelLogs           FuelLog[]
   expenses           Expense[]
-  documents         VehicleDocument[]
 
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -152,36 +139,12 @@ model Driver {
   @@index([licenseExpiryDate])
 }
 
-model Location {
-  id              String       @id @default(uuid())
-  name            String       @unique
-  address         String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  tripsSource     Trip[]       @relation("TripSource")
-  tripsDestination Trip[]      @relation("TripDestination")
-}
-
-model Vendor {
-  id              String           @id @default(uuid())
-  name            String           @unique
-  contactInfo     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  maintenanceLogs MaintenanceLog[]
-  fuelLogs        FuelLog[]        @relation("FuelLogVendor")
-}
-
 model Trip {
   id              String     @id @default(uuid())
   tripNumber      String     @unique @default(uuid())
 
-  sourceLocationId String
-  sourceLocation   Location  @relation("TripSource", fields: [sourceLocationId], references: [id])
-  destinationLocationId String
-  destinationLocation Location @relation("TripDestination", fields: [destinationLocationId], references: [id])
+  source          String
+  destination     String
 
   vehicleId       String
   vehicle         Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
@@ -230,8 +193,6 @@ model MaintenanceLog {
 
   maintenanceType String?
   description     String
-  vendorId        String?
-  vendor          Vendor?           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   priority        String?
   cost            Decimal           @db.Decimal(10, 2)
   status          MaintenanceStatus @default(ACTIVE)
@@ -264,8 +225,6 @@ model FuelLog {
   liters          Float
   pricePerLiter   Decimal? @db.Decimal(10, 2)
   cost            Decimal  @db.Decimal(10, 2)
-  vendorId        String?
-  vendor          Vendor?  @relation("FuelLogVendor", fields: [vendorId], references: [id], onDelete: Restrict)
   odometer        Float?
   date            DateTime @default(now())
 
@@ -313,37 +272,4 @@ model Expense {
   @@index([type])
   @@index([date])
 }
-
-model VehicleDocument {
-  id          String             @id @default(uuid())
-  vehicleId   String
-  vehicle     Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-
-  documentType VehicleDocumentType
-  documentUrl  String
-  expiryDate   DateTime?
-  notes        String?
-
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  deletedAt    DateTime?
-
-  @@index([vehicleId])
-  @@index([documentType])
-  @@index([expiryDate])
-}
-
-model ActivityLog {
-  id          String        @id @default(uuid())
-  type        String
-  entityName  String
-  entityId    String
-  message     String
-  metadata    Json?
-
-  createdAt   DateTime      @default(now())
-
-  @@index([type])
-  @@index([entityName, entityId])
-  @@index([createdAt])
-}
+

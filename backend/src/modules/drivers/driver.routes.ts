@@ -18,10 +18,10 @@ driverRouter.get('/', asyncHandler(driverController.getAll));
 driverRouter.get('/:id', asyncHandler(driverController.getById));
 
 // POST /api/drivers
-driverRouter.post('/', requireRole('FLEET_MANAGER'), asyncHandler(driverController.create));
+driverRouter.post('/', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.create));
 
 // PATCH /api/drivers/:id
-driverRouter.patch('/:id', requireRole('FLEET_MANAGER'), asyncHandler(driverController.update));
+driverRouter.patch('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.update));
 
 // DELETE /api/drivers/:id
-driverRouter.delete('/:id', requireRole('FLEET_MANAGER'), asyncHandler(driverController.remove));
+driverRouter.delete('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.remove));
