@@ -13,7 +13,11 @@ export const authService = {
         passwordHash: true,
         name: true,
         role: true,
-        driverId: true,
+        driver: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -26,12 +30,14 @@ export const authService = {
       throw Object.assign(new Error('Invalid email or password'), { statusCode: 401 });
     }
 
+    const driverId = user.driver?.id || null;
+
     const token = jwt.sign(
       {
         id: user.id,
         role: user.role,
         name: user.name,
-        driverId: user.driverId,
+        driverId,
       },
       env.JWT_SECRET,
       { expiresIn: '8h' }
@@ -44,7 +50,7 @@ export const authService = {
         email: user.email,
         name: user.name,
         role: user.role,
-        driverId: user.driverId,
+        driverId,
       },
     };
   },

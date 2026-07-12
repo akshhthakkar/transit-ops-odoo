@@ -8,11 +8,37 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
+  // ── Users (one per role) ──────────────────────────────────────────────────
+  const [fleetMgr, driverUser, safetyOfficer, financialAnalyst] = await Promise.all([
+    prisma.user.upsert({
+      where: { email: 'fleet@transitops.com' },
+      update: {},
+      create: { email: 'fleet@transitops.com', passwordHash, name: 'Fleet Manager', role: 'FLEET_MANAGER' },
+    }),
+    prisma.user.upsert({
+      where: { email: 'driver@transitops.com' },
+      update: {},
+      create: { email: 'driver@transitops.com', passwordHash, name: 'Alex Driver', role: 'DRIVER' },
+    }),
+    prisma.user.upsert({
+      where: { email: 'safety@transitops.com' },
+      update: {},
+      create: { email: 'safety@transitops.com', passwordHash, name: 'Safety Officer', role: 'SAFETY_OFFICER' },
+    }),
+    prisma.user.upsert({
+      where: { email: 'finance@transitops.com' },
+      update: {},
+      create: { email: 'finance@transitops.com', passwordHash, name: 'Financial Analyst', role: 'FINANCIAL_ANALYST' },
+    }),
+  ]);
+
+  console.log('✅ Users seeded:', [fleetMgr, driverUser, safetyOfficer, financialAnalyst].map(u => u.email));
+
   // ── Drivers (4) ──────────────────────────────────────────────────────────
   const drivers = await Promise.all([
     prisma.driver.upsert({
       where: { licenseNumber: 'LIC-001' },
-      update: {},
+      update: { userId: driverUser.id },
       create: {
         name: 'Alex Johnson',
         licenseNumber: 'LIC-001',
@@ -20,6 +46,7 @@ async function main() {
         licenseExpiryDate: new Date('2027-06-30'),
         contactNumber: '+1-555-0101',
         safetyScore: 98,
+        userId: driverUser.id,
       },
     }),
     prisma.driver.upsert({
@@ -61,35 +88,6 @@ async function main() {
   ]);
 
   console.log('✅ Drivers seeded:', drivers.map(d => d.name));
-
-  // Find Alex Johnson to link with the Driver user
-  const alexDriver = drivers.find(d => d.name === 'Alex Johnson')!;
-
-  // ── Users (one per role) ──────────────────────────────────────────────────
-  const [fleetMgr, driverUser, safetyOfficer, financialAnalyst] = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'fleet@transitops.com' },
-      update: {},
-      create: { email: 'fleet@transitops.com', passwordHash, name: 'Fleet Manager', role: 'FLEET_MANAGER' },
-    }),
-    prisma.user.upsert({
-      where: { email: 'driver@transitops.com' },
-      update: { driverId: alexDriver.id },
-      create: { email: 'driver@transitops.com', passwordHash, name: 'Alex Driver', role: 'DRIVER', driverId: alexDriver.id },
-    }),
-    prisma.user.upsert({
-      where: { email: 'safety@transitops.com' },
-      update: {},
-      create: { email: 'safety@transitops.com', passwordHash, name: 'Safety Officer', role: 'SAFETY_OFFICER' },
-    }),
-    prisma.user.upsert({
-      where: { email: 'finance@transitops.com' },
-      update: {},
-      create: { email: 'finance@transitops.com', passwordHash, name: 'Financial Analyst', role: 'FINANCIAL_ANALYST' },
-    }),
-  ]);
-
-  console.log('✅ Users seeded:', [fleetMgr, driverUser, safetyOfficer, financialAnalyst].map(u => u.email));
 
   // ── Vehicles (5) ─────────────────────────────────────────────────────────
   const vehicles = await Promise.all([

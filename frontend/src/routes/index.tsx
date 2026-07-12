@@ -7,7 +7,9 @@ import { ProtectedRoute } from '../components/layout/ProtectedRoute';
 import { LoginPage }       from '../features/auth/components/LoginPage';
 import { DashboardPage }   from '../features/dashboard/components/DashboardPage';
 import { VehiclesPage }    from '../features/vehicles/components/VehiclesPage';
+import { VehicleDetailPage } from '../features/vehicles/components/VehicleDetailPage';
 import { DriversPage }     from '../features/drivers/components/DriversPage';
+import { DriverDetailPage } from '../features/drivers/components/DriverDetailPage';
 import { TripsPage }       from '../features/trips/components/TripsPage';
 import { MaintenancePage } from '../features/maintenance/components/MaintenancePage';
 import { FuelExpensePage } from '../features/fuel-expense/components/FuelExpensePage';
@@ -26,7 +28,9 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route path="/"            element={<DashboardPage />} />
           <Route path="/vehicles"    element={<VehiclesPage />} />
+          <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
           <Route path="/drivers"     element={<DriversPage />} />
+          <Route path="/drivers/:id" element={<DriverDetailPage />} />
           <Route path="/trips"       element={<TripsPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/fuel"        element={<FuelExpensePage />} />

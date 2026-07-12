@@ -22,3 +22,6 @@ driverRouter.post('/', requireRole('FLEET_MANAGER'), asyncHandler(driverControll
 
 // PATCH /api/drivers/:id
 driverRouter.patch('/:id', requireRole('FLEET_MANAGER'), asyncHandler(driverController.update));
+
+// DELETE /api/drivers/:id
+driverRouter.delete('/:id', requireRole('FLEET_MANAGER'), asyncHandler(driverController.remove));
