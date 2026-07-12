@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../hooks';
-import rapidLogo from '../../../assets/new-rapid-logo.png';
+import shiftLogo from '../../../assets/shift-logo.png';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -201,7 +201,7 @@ export function LoginPage() {
             <div className="grid-plus grid-plus-tr">+</div>
 
              <div style={{ display: 'flex', alignItems: 'center' }}>
-               <img src={rapidLogo} alt="Swift" style={{ height: '130px', objectFit: 'contain' }} />
+               <img src={shiftLogo} alt="Shift" style={{ height: '130px', objectFit: 'contain' }} />
              </div>
 
             <div className="grid-h-line" style={{ bottom: 0 }} />
