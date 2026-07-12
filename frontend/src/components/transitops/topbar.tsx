@@ -27,6 +27,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { alerts } from "@/lib/transit-data";
 import { StatusBadge } from "./status-badge";
 import { CommandPalette } from "./command-palette";
@@ -42,6 +51,9 @@ export function Topbar() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [depotOpen, setDepotOpen] = React.useState(false);
   const [now, setNow] = React.useState<string>("");
   const unread = alerts.filter((a) => !a.acknowledged).length;
 
@@ -210,21 +222,21 @@ export function Topbar() {
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setProfileOpen(true)} className="cursor-pointer">
                 <User className="size-4" /> Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setDepotOpen(true)} className="cursor-pointer">
                 <Building2 className="size-4" /> Switch depot
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)} className="cursor-pointer">
                 <Settings className="size-4" /> Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
                 <Check className="size-4" /> Mark all read
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-danger focus:text-danger cursor-pointer" onClick={handleSignOut}>
+              <DropdownMenuItem className="text-danger focus:text-danger cursor-pointer" onSelect={handleSignOut}>
                 <LogOut className="size-4" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -233,6 +245,143 @@ export function Topbar() {
       </header>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} user={user} displayRole={displayRole} />
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SwitchDepotDialog open={depotOpen} onClose={() => setDepotOpen(false)} />
     </>
+  );
+}
+
+function ProfileDialog({ open, onClose, user, displayRole }: { open: boolean; onClose: () => void; user: any; displayRole: string }) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>User Profile</DialogTitle>
+          <DialogDescription>Your Shift account details and active role scope.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-3">
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-muted/30 p-4">
+            <Avatar className="size-12">
+              <AvatarFallback className="bg-foreground text-sm font-semibold text-background">
+                {user?.name ? user.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) : "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">{user?.name ?? "Guest User"}</h4>
+              <p className="text-xs text-muted-foreground">{displayRole}</p>
+            </div>
+          </div>
+          <div className="divide-y divide-border/60 text-xs">
+            <div className="flex justify-between py-2.5">
+              <span className="text-muted-foreground">Email Address</span>
+              <span className="font-medium text-foreground">{user?.email ?? "—"}</span>
+            </div>
+            <div className="flex justify-between py-2.5">
+              <span className="text-muted-foreground">System Privilege</span>
+              <span className="font-medium text-foreground">{user?.role ?? "—"}</span>
+            </div>
+            <div className="flex justify-between py-2.5">
+              <span className="text-muted-foreground">Assigned Driver ID</span>
+              <span className="font-medium text-foreground">{user?.driverId ?? "None (Central Staff)"}</span>
+            </div>
+            <div className="flex justify-between py-2.5">
+              <span className="text-muted-foreground">Platform Tenant</span>
+              <span className="font-medium text-foreground font-semibold text-brand">Shift Logistics (Global)</span>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [distanceUnit, setDistanceUnit] = React.useState("km");
+  const [tempUnit, setTempUnit] = React.useState("c");
+  const [theme, setTheme] = React.useState("dark");
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>System Settings</DialogTitle>
+          <DialogDescription>Configure display preferences and localization for Shift.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-3">
+          <div className="space-y-1.5">
+            <Label>Distance Unit</Label>
+            <Select value={distanceUnit} onValueChange={setDistanceUnit}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="km">Kilometers (Metric)</SelectItem>
+                <SelectItem value="miles">Miles (Imperial)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Temperature Unit</Label>
+            <Select value={tempUnit} onValueChange={setTempUnit}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="c">Celsius (°C)</SelectItem>
+                <SelectItem value="f">Fahrenheit (°F)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Appearance Theme</Label>
+            <Select value={theme} onValueChange={setTheme}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Light Theme</SelectItem>
+                <SelectItem value="dark">Dark Theme (Glassmorphic)</SelectItem>
+                <SelectItem value="system">Follow System Preferences</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SwitchDepotDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [selectedDepot, setSelectedDepot] = React.useState("central");
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Switch Depot</DialogTitle>
+          <DialogDescription>Toggle your active workspace depot to scope regional data.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-3">
+          <div className="space-y-1.5">
+            <Label>Active Operations Depot</Label>
+            <Select value={selectedDepot} onValueChange={setSelectedDepot}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="central">Central Yard Terminal (Dallas, TX)</SelectItem>
+                <SelectItem value="north">North Hub Depot (Chicago, IL)</SelectItem>
+                <SelectItem value="south">Southwest Regional Yard (Phoenix, AZ)</SelectItem>
+                <SelectItem value="west">Pacific Freight Depot (Los Angeles, CA)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[11px] text-muted-foreground bg-muted/40 p-3 rounded border border-border/60">
+            Note: Switching depots scopes your dashboard counts, fleet status alerts, and map assets to the selected regional terminal location.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
