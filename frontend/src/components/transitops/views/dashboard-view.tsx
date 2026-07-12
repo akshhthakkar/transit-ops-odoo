@@ -45,6 +45,13 @@ import {
 } from "@/lib/transit-data";
 import { useMaintenance, useDashboardSummary, useVehicles, useTrips, useDrivers } from "@/hooks/queries";
 import { NewTripDialog } from "./trips-view";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const severityMeta: Record<AlertSeverity, { tone: Tone; icon: typeof CircleAlert }> = {
   critical: { tone: "danger", icon: CircleAlert },
@@ -62,11 +69,33 @@ const vehicleStatusTone: Record<string, Tone> = {
 
 export function DashboardView() {
   const [newTripOpen, setNewTripOpen] = React.useState(false);
-  const { data: summary, isLoading: isLoadingSummary } = useDashboardSummary();
+  const [vehicleType, setVehicleType] = React.useState<string>("all");
+  const [vehicleStatus, setVehicleStatus] = React.useState<string>("all");
+  const [region, setRegion] = React.useState<string>("all");
+
+  const summaryFilters = React.useMemo(() => {
+    const f: Record<string, string> = {};
+    if (vehicleType !== "all") f.type = vehicleType;
+    if (vehicleStatus !== "all") f.status = vehicleStatus;
+    if (region !== "all") f.region = region;
+    return f;
+  }, [vehicleType, vehicleStatus, region]);
+
+  const { data: summary, isLoading: isLoadingSummary } = useDashboardSummary(summaryFilters);
   const { data: vehicles = [], isLoading: isLoadingVehicles } = useVehicles();
   const { data: trips = [], isLoading: isLoadingTrips } = useTrips();
   const { data: drivers = [], isLoading: isLoadingDrivers } = useDrivers();
   const { data: maintenance = [], isLoading: isLoadingMaintenance } = useMaintenance();
+
+  const regions = React.useMemo(() => {
+    const list = new Set<string>();
+    vehicles.forEach((v) => {
+      if (v.location && v.location !== "Unknown") {
+        list.add(v.location);
+      }
+    });
+    return Array.from(list).sort();
+  }, [vehicles]);
 
   const costBreakdown = React.useMemo(() => {
     const fuel = summary?.fuelCostMonth ?? 0;
@@ -114,7 +143,7 @@ export function DashboardView() {
       .sort((a, b) => a.days - b.days);
   }, [drivers]);
 
-  if (isLoadingSummary || isLoadingVehicles || isLoadingTrips || isLoadingDrivers || isLoadingMaintenance) {
+  if ((isLoadingSummary && !summary) || isLoadingVehicles || isLoadingTrips || isLoadingDrivers || isLoadingMaintenance) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
         Loading operations overview...
@@ -161,6 +190,75 @@ export function DashboardView() {
           </>
         }
       />
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-card rounded-xl border border-foreground/[0.05]">
+        <div className="flex flex-col gap-1 w-[200px]">
+          <span className="text-xs font-medium text-muted-foreground">Vehicle Type</span>
+          <Select value={vehicleType} onValueChange={setVehicleType}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="Tractor">Tractor</SelectItem>
+              <SelectItem value="Box Truck">Box Truck</SelectItem>
+              <SelectItem value="Reefer">Reefer</SelectItem>
+              <SelectItem value="Flatbed">Flatbed</SelectItem>
+              <SelectItem value="Sprinter Van">Sprinter Van</SelectItem>
+              <SelectItem value="Straight Truck">Straight Truck</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1 w-[200px]">
+          <span className="text-xs font-medium text-muted-foreground">Vehicle Status</span>
+          <Select value={vehicleStatus} onValueChange={setVehicleStatus}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="AVAILABLE">Available</SelectItem>
+              <SelectItem value="ON_TRIP">On Trip</SelectItem>
+              <SelectItem value="IN_SHOP">In Shop</SelectItem>
+              <SelectItem value="RETIRED">Retired</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1 w-[200px]">
+          <span className="text-xs font-medium text-muted-foreground">Terminal / Region</span>
+          <Select value={region} onValueChange={setRegion}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All regions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Regions</SelectItem>
+              {regions.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {(vehicleType !== "all" || vehicleStatus !== "all" || region !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 mt-5 text-xs text-muted-foreground hover:bg-foreground/[0.05]"
+            onClick={() => {
+              setVehicleType("all");
+              setVehicleStatus("all");
+              setRegion("all");
+            }}
+          >
+            Reset Filters
+          </Button>
+        )}
+      </div>
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

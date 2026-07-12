@@ -10,7 +10,7 @@ fuelExpenseRouter.use(authenticate);
 
 // ── Fuel logs ────────────────────────────────────────────────────────────────
 // GET  /api/fuel?vehicleId=
-fuelExpenseRouter.get('/logs', asyncHandler(fuelExpenseController.getFuelLogs));
+fuelExpenseRouter.get('/logs', requireRole('FLEET_MANAGER', 'DRIVER', 'FINANCIAL_ANALYST'), asyncHandler(fuelExpenseController.getFuelLogs));
 
 // POST /api/fuel/logs
 fuelExpenseRouter.post(
@@ -21,11 +21,11 @@ fuelExpenseRouter.post(
 
 // ── Expenses ─────────────────────────────────────────────────────────────────
 // GET  /api/fuel/expenses?vehicleId=
-fuelExpenseRouter.get('/expenses', asyncHandler(fuelExpenseController.getExpenses));
+fuelExpenseRouter.get('/expenses', requireRole('FLEET_MANAGER', 'DRIVER', 'FINANCIAL_ANALYST'), asyncHandler(fuelExpenseController.getExpenses));
 
 // POST /api/fuel/expenses
 fuelExpenseRouter.post(
   '/expenses',
-  requireRole('FLEET_MANAGER'),
+  requireRole('FLEET_MANAGER', 'DRIVER'),
   asyncHandler(fuelExpenseController.createExpense)
 );

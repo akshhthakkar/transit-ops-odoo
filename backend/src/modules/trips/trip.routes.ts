@@ -9,10 +9,10 @@ export const tripRouter = Router();
 tripRouter.use(authenticate);
 
 // GET  /api/trips
-tripRouter.get('/', asyncHandler(tripController.getAll));
+tripRouter.get('/', requireRole('FLEET_MANAGER', 'DRIVER'), asyncHandler(tripController.getAll));
 
 // GET  /api/trips/:id
-tripRouter.get('/:id', asyncHandler(tripController.getById));
+tripRouter.get('/:id', requireRole('FLEET_MANAGER', 'DRIVER'), asyncHandler(tripController.getById));
 
 // POST /api/trips  — create a DRAFT trip
 tripRouter.post(

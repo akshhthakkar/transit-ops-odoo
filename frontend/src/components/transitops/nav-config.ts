@@ -42,3 +42,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+export function isKeyAllowedForRole(key: NavKey, role: string): boolean {
+  switch (role) {
+    case "FLEET_MANAGER":
+      return true;
+    case "DRIVER":
+      return key === "trips" || key === "expenses";
+    case "SAFETY_OFFICER":
+      return key === "dashboard" || key === "vehicles" || key === "drivers" || key === "maintenance" || key === "analytics";
+    case "FINANCIAL_ANALYST":
+      return key === "dashboard" || key === "vehicles" || key === "expenses" || key === "analytics";
+    default:
+      return false;
+  }
+}

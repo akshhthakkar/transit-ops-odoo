@@ -2,38 +2,71 @@ import { prisma } from '../../lib/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export const reportsService = {
-  async getDashboardKpis() {
+  async getDashboardKpis(filters: { type?: string; status?: string; region?: string } = {}) {
+    const vehicleWhere: any = { deletedAt: null };
+    if (filters.type) {
+      vehicleWhere.type = filters.type;
+    }
+    if (filters.status) {
+      vehicleWhere.status = filters.status;
+    }
+    if (filters.region) {
+      vehicleWhere.region = filters.region;
+    }
+
     const activeVehicles = await prisma.vehicle.count({
-      where: { status: 'ON_TRIP', deletedAt: null },
+      where: { ...vehicleWhere, status: filters.status ? (filters.status === 'ON_TRIP' ? 'ON_TRIP' : 'invalid-status') : 'ON_TRIP' },
     });
 
     const availableVehicles = await prisma.vehicle.count({
-      where: { status: 'AVAILABLE', deletedAt: null },
+      where: { ...vehicleWhere, status: filters.status ? (filters.status === 'AVAILABLE' ? 'AVAILABLE' : 'invalid-status') : 'AVAILABLE' },
     });
 
     const inShopVehicles = await prisma.vehicle.count({
-      where: { status: 'IN_SHOP', deletedAt: null },
+      where: { ...vehicleWhere, status: filters.status ? (filters.status === 'IN_SHOP' ? 'IN_SHOP' : 'invalid-status') : 'IN_SHOP' },
     });
 
-    const driversOnDuty = await prisma.driver.count({
-      where: { status: 'ON_TRIP', deletedAt: null },
-    });
+    // Trips (Active: DISPATCHED, Pending: DRAFT)
+    const tripWhere: any = { deletedAt: null };
+    if (filters.type || filters.region || filters.status) {
+      tripWhere.vehicle = { deletedAt: null };
+      if (filters.type) tripWhere.vehicle.type = filters.type;
+      if (filters.region) tripWhere.vehicle.region = filters.region;
+      if (filters.status) tripWhere.vehicle.status = filters.status;
+    }
 
     const activeTrips = await prisma.trip.count({
-      where: { status: 'DISPATCHED', deletedAt: null },
+      where: { ...tripWhere, status: 'DISPATCHED' },
     });
 
     const pendingTrips = await prisma.trip.count({
-      where: {
-        status: 'DRAFT',
-        deletedAt: null,
-      },
+      where: { ...tripWhere, status: 'DRAFT' },
+    });
+
+    // Drivers on duty
+    const driverWhere: any = { deletedAt: null, status: 'ON_TRIP' };
+    if (filters.type || filters.region || filters.status) {
+      driverWhere.trips = {
+        some: {
+          status: 'DISPATCHED',
+          deletedAt: null,
+          vehicle: {
+            deletedAt: null,
+          }
+        }
+      };
+      if (filters.type) driverWhere.trips.some.vehicle.type = filters.type;
+      if (filters.region) driverWhere.trips.some.vehicle.region = filters.region;
+      if (filters.status) driverWhere.trips.some.vehicle.status = filters.status;
+    }
+    const driversOnDuty = await prisma.driver.count({
+      where: driverWhere,
     });
 
     const totalNonRetiredVehicles = await prisma.vehicle.count({
       where: {
-        status: { not: 'RETIRED' },
-        deletedAt: null,
+        ...vehicleWhere,
+        status: filters.status ? (filters.status !== 'RETIRED' ? filters.status : 'invalid-status') : { not: 'RETIRED' },
       },
     });
 
@@ -42,25 +75,43 @@ export const reportsService = {
       : 0;
 
     // Fuel cost sum
+    const fuelWhere: any = { deletedAt: null };
+    if (filters.type || filters.region || filters.status) {
+      fuelWhere.vehicle = { deletedAt: null };
+      if (filters.type) fuelWhere.vehicle.type = filters.type;
+      if (filters.region) fuelWhere.vehicle.region = filters.region;
+      if (filters.status) fuelWhere.vehicle.status = filters.status;
+    }
     const fuelCostAggregate = await prisma.fuelLog.aggregate({
-      where: { deletedAt: null },
+      where: fuelWhere,
       _sum: { cost: true },
     });
     const fuelCostMonth = Number(fuelCostAggregate._sum.cost ?? 0);
 
     // Maintenance cost sum
+    const maintWhere: any = { deletedAt: null };
+    if (filters.type || filters.region || filters.status) {
+      maintWhere.vehicle = { deletedAt: null };
+      if (filters.type) maintWhere.vehicle.type = filters.type;
+      if (filters.region) maintWhere.vehicle.region = filters.region;
+      if (filters.status) maintWhere.vehicle.status = filters.status;
+    }
     const maintenanceCostAggregate = await prisma.maintenanceLog.aggregate({
-      where: { deletedAt: null },
+      where: maintWhere,
       _sum: { cost: true },
     });
     const maintenanceCostMonth = Number(maintenanceCostAggregate._sum.cost ?? 0);
 
-    // Expense cost sum (excluding type = MAINTENANCE to avoid double-counting)
+    // Expense cost sum (excluding type = MAINTENANCE)
+    const expWhere: any = { type: { not: 'MAINTENANCE' }, deletedAt: null };
+    if (filters.type || filters.region || filters.status) {
+      expWhere.vehicle = { deletedAt: null };
+      if (filters.type) expWhere.vehicle.type = filters.type;
+      if (filters.region) expWhere.vehicle.region = filters.region;
+      if (filters.status) expWhere.vehicle.status = filters.status;
+    }
     const expenseCostAggregate = await prisma.expense.aggregate({
-      where: {
-        type: { not: 'MAINTENANCE' },
-        deletedAt: null,
-      },
+      where: expWhere,
       _sum: { amount: true },
     });
     const expenseCostSum = Number(expenseCostAggregate._sum.amount ?? 0);

@@ -12,16 +12,16 @@ driverRouter.use(authenticate);
 driverRouter.get('/eligible', asyncHandler(driverController.getEligible));
 
 // GET /api/drivers
-driverRouter.get('/', asyncHandler(driverController.getAll));
+driverRouter.get('/', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.getAll));
 
 // GET /api/drivers/:id
-driverRouter.get('/:id', asyncHandler(driverController.getById));
+driverRouter.get('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER', 'DRIVER'), asyncHandler(driverController.getById));
 
 // POST /api/drivers
 driverRouter.post('/', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.create));
 
 // PATCH /api/drivers/:id
-driverRouter.patch('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.update));
+driverRouter.patch('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER', 'DRIVER'), asyncHandler(driverController.update));
 
 // DELETE /api/drivers/:id
 driverRouter.delete('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(driverController.remove));

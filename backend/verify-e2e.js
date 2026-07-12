@@ -52,14 +52,8 @@ async function runE2E() {
     return { status: res.status, data };
   };
 
-  // Fetch Locations
-  const locRes = await fleetReq('/locations');
-  if (locRes.status !== 200 || locRes.data.length < 2) {
-    console.error('❌ Failed to fetch locations or not enough locations in database');
-    process.exit(1);
-  }
-  const sourceLocationId = locRes.data[0].id;
-  const destinationLocationId = locRes.data[1].id;
+  const source = 'Main Depot';
+  const destination = 'South Terminal';
 
   // 1. Register vehicle 'Van-05', max capacity 500kg, status Available
   const regNum = 'Van-05-' + Math.random().toString(36).substring(7); // unique suffix to prevent seeding conflicts
@@ -97,8 +91,8 @@ async function runE2E() {
 
   // 3. Create a trip, cargo weight 450kg -> allowed
   const tCreate = await fleetReq('/trips', 'POST', {
-    sourceLocationId,
-    destinationLocationId,
+    source,
+    destination,
     vehicleId,
     driverId,
     cargoWeight: 450,
@@ -113,8 +107,8 @@ async function runE2E() {
 
   // Failure path: 600kg cargo against Van-05's 500kg capacity -> rejected with 400
   const tOverload = await fleetReq('/trips', 'POST', {
-    sourceLocationId,
-    destinationLocationId,
+    source,
+    destination,
     vehicleId,
     driverId,
     cargoWeight: 600, // exceeds 500
@@ -146,8 +140,8 @@ async function runE2E() {
 
   // Failure path: Attempt to dispatch an already-ON_TRIP vehicle -> rejected
   const tDupTrip = await fleetReq('/trips', 'POST', {
-    sourceLocationId,
-    destinationLocationId,
+    source,
+    destination,
     vehicleId, // already ON_TRIP
     driverId,
     cargoWeight: 100,

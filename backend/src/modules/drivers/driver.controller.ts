@@ -63,8 +63,15 @@ export async function create(req: Request, res: Response): Promise<void> {
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
+  const user = req.user!;
+  const { id } = req.params;
+
+  if (user.role === 'DRIVER' && user.driverId !== id) {
+    throw Object.assign(new Error('Forbidden: You can only update your own driver profile'), { statusCode: 403 });
+  }
+
   const body = updateDriverSchema.parse(req.body);
-  const driver = await driverService.update(req.params.id, body);
+  const driver = await driverService.update(id, body);
   res.json(driver);
 }
 

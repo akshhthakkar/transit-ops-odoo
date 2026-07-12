@@ -2,7 +2,12 @@ import { Request, Response } from 'express';
 import { reportsService } from './reports.service';
 
 export async function getDashboard(req: Request, res: Response): Promise<void> {
-  const data = await reportsService.getDashboardKpis();
+  const { type, status, region } = req.query;
+  const data = await reportsService.getDashboardKpis({
+    type: type as string,
+    status: status as string,
+    region: region as string,
+  });
   res.json(data);
 }
 
