@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNav } from "@/store/nav";
+import { useAuthStore } from "@/store/auth";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,9 +39,36 @@ function severityTone(sev: string) {
 
 export function Topbar() {
   const { setMobileNavOpen } = useNav();
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [now, setNow] = React.useState<string>("");
   const unread = alerts.filter((a) => !a.acknowledged).length;
+
+  const initials = React.useMemo(() => {
+    if (!user?.name) return "U";
+    return user.name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }, [user]);
+
+  const displayRole = React.useMemo(() => {
+    if (!user?.role) return "User";
+    return user.role
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.substring(1))
+      .join(" ");
+  }, [user]);
+
+  function handleSignOut() {
+    logout();
+    router.push("/login");
+  }
 
   React.useEffect(() => {
     const tick = () =>
@@ -163,21 +192,21 @@ export function Topbar() {
               <button className="ml-1 flex items-center gap-2 rounded-md py-1 pl-1 pr-2 transition-colors hover:bg-muted">
                 <Avatar className="size-7">
                   <AvatarFallback className="bg-foreground text-[11px] font-medium text-background">
-                    AK
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden text-left leading-tight md:block">
-                  <p className="text-xs font-medium text-foreground">Alex Kowalski</p>
-                  <p className="text-[10px] text-muted-foreground">Fleet Manager</p>
+                  <p className="text-xs font-medium text-foreground">{user?.name ?? "Guest User"}</p>
+                  <p className="text-[10px] text-muted-foreground">{displayRole}</p>
                 </div>
                 <ChevronDown className="hidden size-3 text-muted-foreground md:block" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">Alex Kowalski</span>
+                <span className="text-sm font-medium">{user?.name ?? "Guest User"}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  alex@swift.io
+                  {user?.email ?? "no-email@transitops.com"}
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -195,7 +224,7 @@ export function Topbar() {
                 <Check className="size-4" /> Mark all read
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-danger focus:text-danger">
+              <DropdownMenuItem className="text-danger focus:text-danger cursor-pointer" onClick={handleSignOut}>
                 <LogOut className="size-4" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -24,17 +24,17 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "Swift — Smart Transport Operations",
+  title: "Shift — Smart Transport Operations",
   description:
-    "Swift is a smart transport operations platform for managing fleets, drivers, trips, maintenance, fuel, expenses, and analytics.",
+    "Shift is a smart transport operations platform for managing fleets, drivers, trips, maintenance, fuel, expenses, and analytics.",
   keywords: [
-    "Swift",
+    "Shift",
     "fleet management",
     "transport operations",
     "logistics",
     "ERP",
   ],
-  authors: [{ name: "Swift" }],
+  authors: [{ name: "Shift" }],
 };
 
 export default function RootLayout({
