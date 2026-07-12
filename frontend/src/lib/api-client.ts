@@ -1,26 +1,35 @@
-import axios from 'axios';
-import { useAuthStore } from '../store/auth.store';
+import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
-export const apiClient = axios.create({ baseURL: BASE_URL });
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-// Attach JWT to every request
+// Attach JWT token to every request if available
 apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("transit_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
 
-// Global 401 handler — clear auth and redirect to login
+// Handle 401 responses by clearing stored session
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("transit_token");
+        localStorage.removeItem("transit_user");
+        window.location.href = "/";
+      }
     }
     return Promise.reject(error);
   }
