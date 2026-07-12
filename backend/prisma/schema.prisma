@@ -50,6 +50,29 @@ enum ExpenseType {
   OTHER
 }
 
+enum VehicleDocumentType {
+  REGISTRATION
+  INSURANCE
+  FITNESS
+  POLLUTION
+  OTHER
+}
+
+enum ActivityType {
+  VEHICLE_CREATED
+  VEHICLE_UPDATED
+  DRIVER_CREATED
+  DRIVER_UPDATED
+  TRIP_CREATED
+  TRIP_DISPATCHED
+  TRIP_COMPLETED
+  TRIP_CANCELLED
+  MAINTENANCE_CREATED
+  MAINTENANCE_CLOSED
+  FUEL_LOG_ADDED
+  EXPENSE_ADDED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -58,14 +81,14 @@ model User {
   passwordHash String
   name         String
   role         Role
-  driverId     String?  @unique
-  driver       Driver?  @relation(fields: [driverId], references: [id])
+  driver       Driver?
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Vehicle {
   id                 String           @id @default(uuid())
-  registrationNumber String           @unique
+  registrationNumber  String           @unique
   name               String
   type               String
   maxLoadCapacity    Float
@@ -73,19 +96,27 @@ model Vehicle {
   acquisitionCost    Float
   status             VehicleStatus    @default(AVAILABLE)
   region             String?
+
   trips              Trip[]
   maintenanceLogs    MaintenanceLog[]
   fuelLogs           FuelLog[]
   expenses           Expense[]
+  documents         VehicleDocument[]
+
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
-
+  deletedAt          DateTime?
+  
   @@index([status])
+  @@index([type])
   @@index([region])
 }
 
 model Driver {
   id                String       @id @default(uuid())
+  userId            String?      @unique
+  user              User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   name              String
   licenseNumber     String       @unique
   licenseCategory   String
@@ -93,67 +124,156 @@ model Driver {
   contactNumber     String
   safetyScore       Float        @default(100)
   status            DriverStatus @default(AVAILABLE)
-  user              User?
+
   trips             Trip[]
+
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
 
   @@index([status])
+  @@index([licenseExpiryDate])
 }
 
 model Trip {
   id              String     @id @default(uuid())
+  tripNumber      String     @unique @default(uuid())
+
   source          String
   destination     String
+
   vehicleId       String
-  vehicle         Vehicle    @relation(fields: [vehicleId], references: [id])
+  vehicle         Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
   driverId        String
-  driver          Driver     @relation(fields: [driverId], references: [id])
+  driver          Driver     @relation(fields: [driverId], references: [id], onDelete: Restrict)
+
   cargoWeight     Float
   plannedDistance Float
   actualDistance  Float?
+  startingOdometer Float?
+  endingOdometer   Float?
   fuelConsumed    Float?
   revenue         Float?     // optional — used for per-vehicle ROI computation
+
   status          TripStatus @default(DRAFT)
   dispatchedAt    DateTime?
   completedAt     DateTime?
   cancelledAt     DateTime?
-  fuelLogs        FuelLog[]
-  createdAt       DateTime   @default(now())
 
-  @@index([status])
+  fuelLogs        FuelLog[]
+  expenses        Expense[]
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
   @@index([vehicleId])
   @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model MaintenanceLog {
   id          String            @id @default(uuid())
   vehicleId   String
-  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id])
+  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  maintenanceType String?
   description String
+  vendor      String?
+  priority    String?
   cost        Float
   status      MaintenanceStatus @default(ACTIVE)
   startedAt   DateTime          @default(now())
   closedAt    DateTime?
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  @@index([vehicleId])
+  @@index([status])
 }
 
 model FuelLog {
   id        String   @id @default(uuid())
   vehicleId String
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
   tripId    String?
-  trip      Trip?    @relation(fields: [tripId], references: [id])
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
   liters    Float
+  pricePerLiter Float?
   cost      Float
+  fuelStation String?
+  odometer   Float?
   date      DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([vehicleId])
+  @@index([tripId])
+  @@index([date])
 }
 
 model Expense {
   id          String      @id @default(uuid())
+
   vehicleId   String
-  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  tripId      String?
+  trip        Trip?       @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
   type        ExpenseType
   amount      Float
   date        DateTime    @default(now())
   description String?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@index([vehicleId])
+  @@index([tripId])
+  @@index([type])
+  @@index([date])
+}
+
+model VehicleDocument {
+  id          String             @id @default(uuid())
+  vehicleId   String
+  vehicle     Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  documentType VehicleDocumentType
+  documentUrl  String
+  expiryDate   DateTime?
+  notes        String?
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  deletedAt    DateTime?
+
+  @@index([vehicleId])
+  @@index([documentType])
+  @@index([expiryDate])
+}
+
+model ActivityLog {
+  id          String        @id @default(uuid())
+  type        ActivityType
+  entityName  String
+  entityId    String
+  message     String
+  metadata    Json?
+
+  createdAt   DateTime      @default(now())
+
+  @@index([type])
+  @@index([entityName, entityId])
+  @@index([createdAt])
 }
