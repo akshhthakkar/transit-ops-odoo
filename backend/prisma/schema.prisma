@@ -36,11 +36,15 @@ enum DriverStatus {
 enum TripStatus {
   DRAFT
   DISPATCHED
+  IN_TRANSIT
+  DELAYED
   COMPLETED
   CANCELLED
 }
 
 enum MaintenanceStatus {
+  SCHEDULED
+  PENDING_PARTS
   ACTIVE
   CLOSED
 }
@@ -59,32 +63,32 @@ enum VehicleDocumentType {
   OTHER
 }
 
-enum ActivityType {
-  VEHICLE_CREATED
-  VEHICLE_UPDATED
-  DRIVER_CREATED
-  DRIVER_UPDATED
-  TRIP_CREATED
-  TRIP_DISPATCHED
-  TRIP_COMPLETED
-  TRIP_CANCELLED
-  MAINTENANCE_CREATED
-  MAINTENANCE_CLOSED
-  FUEL_LOG_ADDED
-  EXPENSE_ADDED
-}
-
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String    @id @default(uuid())
+  email        String    @unique
   passwordHash String
   name         String
   role         Role
   driver       Driver?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  // Audit Relations
+  vehiclesCreated     Vehicle[]        @relation("VehicleCreatedBy")
+  vehiclesUpdated     Vehicle[]        @relation("VehicleUpdatedBy")
+  driversCreated      Driver[]         @relation("DriverCreatedBy")
+  driversUpdated      Driver[]         @relation("DriverUpdatedBy")
+  tripsCreated        Trip[]           @relation("TripCreatedBy")
+  tripsUpdated        Trip[]           @relation("TripUpdatedBy")
+  maintenanceCreated MaintenanceLog[] @relation("MaintenanceCreatedBy")
+  maintenanceUpdated MaintenanceLog[] @relation("MaintenanceUpdatedBy")
+  fuelLogsCreated    FuelLog[]        @relation("FuelLogCreatedBy")
+  fuelLogsUpdated    FuelLog[]        @relation("FuelLogUpdatedBy")
+  expensesCreated     Expense[]        @relation("ExpenseCreatedBy")
+  expensesUpdated     Expense[]        @relation("ExpenseUpdatedBy")
 }
 
 model Vehicle {
@@ -94,7 +98,7 @@ model Vehicle {
   type               String
   maxLoadCapacity    Float
   odometer           Float            @default(0)
-  acquisitionCost    Float
+  acquisitionCost    Decimal          @db.Decimal(10, 2)
   status             VehicleStatus    @default(AVAILABLE)
   region             String?
 
@@ -107,6 +111,12 @@ model Vehicle {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   deletedAt          DateTime?
+
+  // Audit Fields
+  createdById        String?
+  createdBy          User?            @relation("VehicleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById        String?
+  updatedBy          User?            @relation("VehicleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   
   @@index([status])
   @@index([type])
@@ -132,16 +142,45 @@ model Driver {
   updatedAt         DateTime     @updatedAt
   deletedAt         DateTime?
 
+  // Audit Fields
+  createdById       String?
+  createdBy         User?        @relation("DriverCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById       String?
+  updatedBy         User?        @relation("DriverUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   @@index([status])
   @@index([licenseExpiryDate])
+}
+
+model Location {
+  id              String       @id @default(uuid())
+  name            String       @unique
+  address         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tripsSource     Trip[]       @relation("TripSource")
+  tripsDestination Trip[]      @relation("TripDestination")
+}
+
+model Vendor {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  contactInfo     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  maintenanceLogs MaintenanceLog[]
 }
 
 model Trip {
   id              String     @id @default(uuid())
   tripNumber      String     @unique @default(uuid())
 
-  source          String
-  destination     String
+  sourceLocationId String
+  sourceLocation   Location  @relation("TripSource", fields: [sourceLocationId], references: [id])
+  destinationLocationId String
+  destinationLocation Location @relation("TripDestination", fields: [destinationLocationId], references: [id])
 
   vehicleId       String
   vehicle         Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
@@ -155,7 +194,7 @@ model Trip {
   startingOdometer Float?
   endingOdometer   Float?
   fuelConsumed    Float?
-  revenue         Float?     // optional — used for per-vehicle ROI computation
+  revenue         Decimal?   @db.Decimal(10, 2)
 
   status          TripStatus @default(DRAFT)
   dispatchedAt    DateTime?
@@ -169,52 +208,74 @@ model Trip {
   updatedAt       DateTime   @updatedAt
   deletedAt       DateTime?
 
+  // Audit Fields
+  createdById     String?
+  createdBy       User?      @relation("TripCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?      @relation("TripUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
   @@index([vehicleId])
   @@index([driverId])
   @@index([status])
   @@index([createdAt])
+  @@index([dispatchedAt])
+  @@index([completedAt])
 }
 
 model MaintenanceLog {
-  id          String            @id @default(uuid())
-  vehicleId   String
-  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  id              String            @id @default(uuid())
+  vehicleId       String
+  vehicle         Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
   maintenanceType String?
-  description String
-  vendor      String?
-  priority    String?
-  cost        Float
-  status      MaintenanceStatus @default(ACTIVE)
-  startedAt   DateTime          @default(now())
-  closedAt    DateTime?
+  description     String
+  vendorId        String?
+  vendor          Vendor?           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  priority        String?
+  cost            Decimal           @db.Decimal(10, 2)
+  status          MaintenanceStatus @default(ACTIVE)
+  startedAt       DateTime          @default(now())
+  closedAt        DateTime?
 
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  deletedAt   DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  // Audit Fields
+  createdById     String?
+  createdBy       User?             @relation("MaintenanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?             @relation("MaintenanceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
   @@index([status])
+  @@index([startedAt])
 }
 
 model FuelLog {
-  id        String   @id @default(uuid())
-  vehicleId String
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  id              String   @id @default(uuid())
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
-  tripId    String?
-  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  tripId          String?
+  trip            Trip?    @relation(fields: [tripId], references: [id], onDelete: Restrict)
 
-  liters    Float
-  pricePerLiter Float?
-  cost      Float
-  fuelStation String?
-  odometer   Float?
-  date      DateTime @default(now())
+  liters          Float
+  pricePerLiter   Decimal? @db.Decimal(10, 2)
+  cost            Decimal  @db.Decimal(10, 2)
+  fuelStation     String?
+  odometer        Float?
+  date            DateTime @default(now())
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  // Audit Fields
+  createdById     String?
+  createdBy       User?    @relation("FuelLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?    @relation("FuelLogUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
   @@index([tripId])
@@ -222,22 +283,28 @@ model FuelLog {
 }
 
 model Expense {
-  id          String      @id @default(uuid())
+  id              String      @id @default(uuid())
 
-  vehicleId   String
-  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  vehicleId       String
+  vehicle         Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
-  tripId      String?
-  trip        Trip?       @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  tripId          String?
+  trip            Trip?       @relation(fields: [tripId], references: [id], onDelete: Restrict)
 
-  type        ExpenseType
-  amount      Float
-  date        DateTime    @default(now())
-  description String?
+  type            ExpenseType
+  amount          Decimal     @db.Decimal(10, 2)
+  date            DateTime    @default(now())
+  description     String?
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  // Audit Fields
+  createdById     String?
+  createdBy       User?       @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?       @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([vehicleId])
   @@index([tripId])
@@ -266,7 +333,7 @@ model VehicleDocument {
 
 model ActivityLog {
   id          String        @id @default(uuid())
-  type        ActivityType
+  type        String
   entityName  String
   entityId    String
   message     String

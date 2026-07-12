@@ -119,6 +119,49 @@ async function main() {
   ]);
 
   console.log('✅ Vehicles seeded:', vehicles.map(v => v.registrationNumber));
+
+  // ── Locations (3) ────────────────────────────────────────────────────────
+  const locations = await Promise.all([
+    prisma.location.upsert({
+      where: { name: 'Main Depot' },
+      update: {},
+      create: { name: 'Main Depot', address: '123 Logistics Way, New York, NY' },
+    }),
+    prisma.location.upsert({
+      where: { name: 'South Terminal' },
+      update: {},
+      create: { name: 'South Terminal', address: '456 Port Road, Houston, TX' },
+    }),
+    prisma.location.upsert({
+      where: { name: 'West Hub' },
+      update: {},
+      create: { name: 'West Hub', address: '789 Highway 10, Los Angeles, CA' },
+    }),
+  ]);
+
+  console.log('✅ Locations seeded:', locations.map(l => l.name));
+
+  // ── Vendors (3) ──────────────────────────────────────────────────────────
+  const vendors = await Promise.all([
+    prisma.vendor.upsert({
+      where: { name: 'FleetCare Mechanics' },
+      update: {},
+      create: { name: 'FleetCare Mechanics', contactInfo: 'info@fleetcare.com' },
+    }),
+    prisma.vendor.upsert({
+      where: { name: 'Tire World' },
+      update: {},
+      create: { name: 'Tire World', contactInfo: 'sales@tireworld.com' },
+    }),
+    prisma.vendor.upsert({
+      where: { name: 'Metro Fuel Station' },
+      update: {},
+      create: { name: 'Metro Fuel Station', contactInfo: 'metro@fuel.com' },
+    }),
+  ]);
+
+  console.log('✅ Vendors seeded:', vendors.map(v => v.name));
+
   console.log('\n🎉 Seed complete!');
   console.log('\nLogin credentials (all use password: password123):');
   console.log('  fleet@transitops.com     → FLEET_MANAGER');
