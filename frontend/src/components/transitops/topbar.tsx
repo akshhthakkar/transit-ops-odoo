@@ -86,6 +86,7 @@ export function Topbar() {
     const tick = () =>
       setNow(
         new Date().toLocaleTimeString("en-US", {
+          timeZone: "Asia/Kolkata",
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
@@ -135,7 +136,7 @@ export function Topbar() {
           <div className="mr-1 hidden items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 md:flex">
             <span className="size-1.5 rounded-full bg-success" />
             <span className="text-xs font-medium text-foreground tnum">{now}</span>
-            <span className="text-xs text-muted-foreground">CST</span>
+            <span className="text-xs text-muted-foreground">IST</span>
           </div>
 
           <Button variant="ghost" size="icon" className="size-8" aria-label="Help">
