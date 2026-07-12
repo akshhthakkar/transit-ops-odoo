@@ -55,7 +55,7 @@ import { DomainStatusBadge } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { DataTable, type Column } from "../tables/data-table";
-import { formatCurrency, vehicleById, driverById, type Trip } from "@/lib/transit-data";
+import { formatCurrency, type Trip } from "@/lib/transit-data";
 import {
   useTrips,
   useVehicles,
@@ -65,6 +65,7 @@ import {
   useDispatchTrip,
   useCompleteTrip,
 } from "@/hooks/queries";
+import type { Vehicle, Driver } from "@/lib/transit-data";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -242,8 +243,22 @@ export function TripsView() {
   const [addOpen, setAddOpen] = React.useState(false);
   const [completeTripTarget, setCompleteTripTarget] = React.useState<Trip | null>(null);
   const { data: trips = [], isLoading } = useTrips();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
   const cancelTrip = useCancelTrip();
   const dispatchTrip = useDispatchTrip();
+
+  const vehicleMap = React.useMemo(() => {
+    const m = new Map<string, Vehicle>();
+    vehicles.forEach((v) => m.set(v.id, v));
+    return m;
+  }, [vehicles]);
+
+  const driverMap = React.useMemo(() => {
+    const m = new Map<string, Driver>();
+    drivers.forEach((d) => m.set(d.id, d));
+    return m;
+  }, [drivers]);
 
   const filtered = React.useMemo(
     () => (filter === "all" ? trips : trips.filter((t) => t.status === filter)),
@@ -286,15 +301,15 @@ export function TripsView() {
     {
       key: "vehicle",
       header: "Vehicle",
-      cell: (t) => vehicleById(t.vehicleId)?.plate ?? <span className="text-muted-foreground text-xs">{t.vehicleId?.slice(0, 8)}</span>,
-      sortValue: (t) => vehicleById(t.vehicleId)?.plate ?? "",
+      cell: (t) => vehicleMap.get(t.vehicleId)?.plate ?? <span className="text-muted-foreground text-xs">{t.vehicleId?.slice(0, 8)}</span>,
+      sortValue: (t) => vehicleMap.get(t.vehicleId)?.plate ?? "",
       hideOnMobile: true,
     },
     {
       key: "driver",
       header: "Driver",
-      cell: (t) => driverById(t.driverId)?.name ?? <span className="text-muted-foreground text-xs">{t.driverId?.slice(0, 8)}</span>,
-      sortValue: (t) => driverById(t.driverId)?.name ?? "",
+      cell: (t) => driverMap.get(t.driverId)?.name ?? <span className="text-muted-foreground text-xs">{t.driverId?.slice(0, 8)}</span>,
+      sortValue: (t) => driverMap.get(t.driverId)?.name ?? "",
       hideOnMobile: true,
     },
     {
@@ -425,8 +440,8 @@ export function TripsView() {
             t.id.toLowerCase().includes(q) ||
             t.route.toLowerCase().includes(q) ||
             t.cargo.toLowerCase().includes(q) ||
-            (vehicleById(t.vehicleId)?.plate ?? "").toLowerCase().includes(q) ||
-            (driverById(t.driverId)?.name ?? "").toLowerCase().includes(q)
+            (vehicleMap.get(t.vehicleId)?.plate ?? "").toLowerCase().includes(q) ||
+            (driverMap.get(t.driverId)?.name ?? "").toLowerCase().includes(q)
           }
           searchPlaceholder="Search by trip, route, vehicle…"
           pageSize={10}
@@ -510,8 +525,10 @@ function TripDetailSheet({
   trip: Trip | null;
   onClose: () => void;
 }) {
-  const vehicle = trip ? vehicleById(trip.vehicleId) : null;
-  const driver = trip ? driverById(trip.driverId) : null;
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
+  const vehicle = trip ? (vehicles.find((v) => v.id === trip.vehicleId) ?? null) : null;
+  const driver = trip ? (drivers.find((d) => d.id === trip.driverId) ?? null) : null;
   return (
     <Sheet open={!!trip} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">

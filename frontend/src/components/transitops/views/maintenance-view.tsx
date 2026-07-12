@@ -54,7 +54,7 @@ import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { DataTable, type Column } from "../tables/data-table";
-import { formatCurrency, vehicleById, type MaintenanceRecord } from "@/lib/transit-data";
+import { formatCurrency, type MaintenanceRecord } from "@/lib/transit-data";
 import {
   useMaintenance,
   useCreateMaintenance,
@@ -208,7 +208,14 @@ export function MaintenanceView() {
   const [selected, setSelected] = React.useState<MaintenanceRecord | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { data: maintenance = [], isLoading } = useMaintenance();
+  const { data: vehicles = [] } = useVehicles();
   const closeMaintenance = useCloseMaintenance();
+
+  const vehicleMap = React.useMemo(() => {
+    const m = new Map<string, { plate: string; model: string }>();
+    vehicles.forEach((v) => m.set(v.id, { plate: v.plate, model: v.model }));
+    return m;
+  }, [vehicles]);
 
   const filtered = React.useMemo(
     () =>
@@ -241,7 +248,7 @@ export function MaintenanceView() {
       key: "vehicle",
       header: "Vehicle",
       cell: (m) => {
-        const v = vehicleById(m.vehicleId);
+        const v = vehicleMap.get(m.vehicleId);
         return v ? (
           <div>
             <p className="font-medium text-foreground">{v.plate}</p>
@@ -251,7 +258,7 @@ export function MaintenanceView() {
           <span className="text-xs text-muted-foreground font-mono">{m.vehicleId?.slice(0, 8)}</span>
         );
       },
-      sortValue: (m) => vehicleById(m.vehicleId)?.plate ?? "",
+      sortValue: (m) => vehicleMap.get(m.vehicleId)?.plate ?? "",
     },
     {
       key: "type",
@@ -309,7 +316,17 @@ export function MaintenanceView() {
         description={`${maintenance.filter((m) => m.status === "in_progress").length} in progress · ${maintenance.filter((m) => m.status === "overdue").length} overdue`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={() => {
+              const headers = ["ID", "Vehicle", "Service Type", "Status", "Priority", "Date", "Cost ($)", "Technician"];
+              const rows = maintenance.map((m) => {
+                const v = vehicleMap.get(m.vehicleId);
+                return [m.id, v ? `${v.plate} - ${v.model}` : m.vehicleId, m.type, m.status, m.priority, m.scheduled, m.cost, m.technician];
+              });
+              const csv = [headers.join(","), ...rows.map((r) => r.map((val) => { const s = String(val ?? "").replace(/"/g, '""'); return s.includes(",") || s.includes("\n") ? `"${s}"` : s; }).join(","))].join("\r\n");
+              const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = "maintenance-export.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            }}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -353,7 +370,7 @@ export function MaintenanceView() {
           onRowClick={(m) => setSelected(m)}
           searchable
           searchFn={(m, q) => {
-            const v = vehicleById(m.vehicleId);
+            const v = vehicleMap.get(m.vehicleId);
             return (
               m.id.toLowerCase().includes(q) ||
               m.type.toLowerCase().includes(q) ||
@@ -451,7 +468,8 @@ function MaintenanceDetailSheet({
   onMarkComplete: (id: string) => void;
   isClosing: boolean;
 }) {
-  const vehicle = item ? vehicleById(item.vehicleId) : null;
+  const { data: vehicles = [] } = useVehicles();
+  const vehicle = item ? (vehicles.find((v) => v.id === item.vehicleId) ?? null) : null;
   return (
     <Sheet open={!!item} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">

@@ -53,7 +53,7 @@ import { SectionCard } from "../section-card";
 import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
-import { daysUntil, vehicleById, type Driver } from "@/lib/transit-data";
+import { type Driver } from "@/lib/transit-data";
 import {
   useDrivers,
   useCreateDriver,
@@ -63,6 +63,14 @@ import {
   useVehicles,
   useTrips,
 } from "@/hooks/queries";
+
+// Use real current date for license expiry calculations
+function daysUntil(iso: string): number {
+  if (!iso) return 9999;
+  const now = Date.now();
+  const target = new Date(iso).getTime();
+  return Math.round((target - now) / (1000 * 60 * 60 * 24));
+}
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -429,7 +437,8 @@ function DriverDetailSheet({
   onEdit: (d: Driver) => void;
   onAssign: (d: Driver) => void;
 }) {
-  const vehicle = driver ? vehicleById(driver.assignedVehicleId) : null;
+  const { data: vehicles = [] } = useVehicles();
+  const vehicle = driver ? (vehicles.find((v) => v.id === driver.assignedVehicleId) ?? null) : null;
   return (
     <Sheet open={!!driver} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
