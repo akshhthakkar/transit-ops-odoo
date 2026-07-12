@@ -49,3 +49,8 @@ frontend/.vite/
 *.local
 coverage/
 .nyc_output/
+
+# ─── Local planning docs (not for repo) ─────────────────────────────────────
+prompt.md
+skills/
+.agents

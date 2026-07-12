@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 
 export interface JwtPayload {
-  id:   string;
-  role: string;
-  name: string;
+  id:       string;
+  role:     string;
+  name:     string;
+  driverId: string | null;
 }
 
 // Extend Express Request to carry the decoded token

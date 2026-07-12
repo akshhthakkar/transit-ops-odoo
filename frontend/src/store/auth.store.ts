@@ -4,9 +4,10 @@ import { persist } from 'zustand/middleware';
 export type UserRole = 'FLEET_MANAGER' | 'DRIVER' | 'SAFETY_OFFICER' | 'FINANCIAL_ANALYST';
 
 interface AuthUser {
-  id:   string;
-  name: string;
-  role: UserRole;
+  id:       string;
+  name:     string;
+  role:     UserRole;
+  driverId: string | null;
 }
 
 interface AuthState {

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { errorMiddleware } from './middleware/error.middleware';
 
 // Module routers
@@ -14,6 +15,7 @@ import { reportsRouter }     from './modules/reports/reports.routes';
 const app = express();
 
 // ── Global middleware ────────────────────────────────────────────────────────
+app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL ?? '*' }));
 app.use(express.json());
 
