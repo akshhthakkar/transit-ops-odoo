@@ -11,8 +11,8 @@ import { useVehicles, useDrivers, useTrips, useMaintenance } from "@/hooks/queri
 
 function BrandMark() {
   return (
-    <div className="flex items-center px-1">
-      <img src="/assets/shift-logo.png" alt="Shift" style={{ height: "26px", objectFit: "contain" }} />
+    <div className="flex items-center px-1 py-1.5">
+      <img src="/assets/shift-logo.png" alt="Shift" style={{ height: "44px", objectFit: "contain" }} />
     </div>
   );
 }
