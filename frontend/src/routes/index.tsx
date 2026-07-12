@@ -3,7 +3,8 @@ import { useAuthStore } from '../store/auth.store';
 import { AppShell } from '../components/layout/AppShell';
 import { ProtectedRoute } from '../components/layout/ProtectedRoute';
 
-// Pages — placeholder imports (each renders a stub card)
+// Pages
+import HomePage from '../pages/home/HomePage';
 import { LoginPage }       from '../features/auth/components/LoginPage';
 import { DashboardPage }   from '../features/dashboard/components/DashboardPage';
 import { VehiclesPage }    from '../features/vehicles/components/VehiclesPage';
@@ -21,12 +22,13 @@ export function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/login" element={token ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={token ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
       {/* Protected — wrapped in AppShell (sidebar + navbar) */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/"            element={<DashboardPage />} />
+          <Route path="/dashboard"   element={<DashboardPage />} />
           <Route path="/vehicles"    element={<VehiclesPage />} />
           <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
           <Route path="/drivers"     element={<DriversPage />} />
@@ -39,7 +41,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to={token ? '/' : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={token ? '/dashboard' : '/login'} replace />} />
     </Routes>
   );
 }

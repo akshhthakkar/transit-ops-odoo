@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 
 const navItems = [
-  { to: '/',            label: 'Dashboard',   icon: '📊' },
+  { to: '/dashboard',   label: 'Dashboard',   icon: '📊' },
   { to: '/vehicles',    label: 'Vehicles',    icon: '🚛' },
   { to: '/drivers',     label: 'Drivers',     icon: '👤' },
   { to: '/trips',       label: 'Trips',       icon: '📍' },
@@ -18,7 +18,7 @@ export function Sidebar() {
     <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-800">
-        <span className="text-lg font-bold text-brand-500">🚌 TransitOps</span>
+        <span className="text-lg font-bold text-brand-500">🚌 Swift</span>
       </div>
 
       {/* Nav links */}
@@ -27,7 +27,7 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === '/dashboard'}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
