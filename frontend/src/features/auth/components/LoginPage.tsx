@@ -45,7 +45,7 @@ export function LoginPage() {
             🚌
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
-            Transit<span className="text-brand-500">Ops</span>
+            Swift
           </h1>
           <p className="text-gray-400 text-sm mt-2">
             Fleet Operations Management Platform
