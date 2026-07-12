@@ -35,6 +35,11 @@ export const metadata: Metadata = {
     "ERP",
   ],
   authors: [{ name: "Shift" }],
+  icons: {
+    icon: "/assets/Shift_fav.png",
+    shortcut: "/assets/Shift_fav.png",
+    apple: "/assets/Shift_fav.png",
+  },
 };
 
 export default function RootLayout({
