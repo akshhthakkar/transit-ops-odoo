@@ -9,10 +9,10 @@ export const maintenanceRouter = Router();
 maintenanceRouter.use(authenticate);
 
 // GET /api/maintenance
-maintenanceRouter.get('/', asyncHandler(maintenanceController.getAll));
+maintenanceRouter.get('/', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(maintenanceController.getAll));
 
 // GET /api/maintenance/:id
-maintenanceRouter.get('/:id', asyncHandler(maintenanceController.getById));
+maintenanceRouter.get('/:id', requireRole('FLEET_MANAGER', 'SAFETY_OFFICER'), asyncHandler(maintenanceController.getById));
 
 // POST /api/maintenance  — creates log + sets vehicle → IN_SHOP (transaction)
 maintenanceRouter.post(

@@ -30,6 +30,8 @@ export interface Vehicle {
   nextService: string; // ISO date
   utilization: number; // 0-100
   vin: string;
+  maxLoadCapacity?: number;
+  acquisitionCost?: number;
 }
 
 export type DriverStatus = "on_duty" | "off_duty" | "on_leave" | "available";

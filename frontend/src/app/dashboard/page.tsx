@@ -3,8 +3,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/transitops/app-shell";
-import { useNav } from "@/store/nav";
+import { useNav, type NavKey } from "@/store/nav";
 import { useAuthStore } from "@/store/auth";
+import { isKeyAllowedForRole } from "@/components/transitops/nav-config";
 import { DashboardView } from "@/components/transitops/views/dashboard-view";
 import { VehiclesView } from "@/components/transitops/views/vehicles-view";
 import { DriversView } from "@/components/transitops/views/drivers-view";
@@ -14,8 +15,8 @@ import { ExpensesView } from "@/components/transitops/views/expenses-view";
 import { AnalyticsView } from "@/components/transitops/views/analytics-view";
 
 export default function DashboardPage() {
-  const { active } = useNav();
-  const { token, hydrate } = useAuthStore();
+  const { active, set } = useNav();
+  const { token, user, hydrate } = useAuthStore();
   const router = useRouter();
   const [hydrated, setHydrated] = React.useState(false);
 
@@ -29,6 +30,19 @@ export default function DashboardPage() {
       router.push("/login");
     }
   }, [hydrated, token, router]);
+
+  React.useEffect(() => {
+    if (hydrated && token && user) {
+      if (!isKeyAllowedForRole(active, user.role)) {
+        const firstAllowed = (["dashboard", "vehicles", "drivers", "trips", "maintenance", "expenses", "analytics"] as NavKey[]).find(
+          (key) => isKeyAllowedForRole(key, user.role)
+        );
+        if (firstAllowed) {
+          set(firstAllowed);
+        }
+      }
+    }
+  }, [hydrated, token, user, active, set]);
 
   if (!hydrated || !token) return null;
 

@@ -54,7 +54,7 @@ import { StatusBadge, DomainStatusBadge } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
 import { formatNumber, driverById, type Vehicle } from "@/lib/transit-data";
-import { useVehicles, useCreateVehicle } from "@/hooks/queries";
+import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle, useCreateMaintenance } from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -195,6 +195,9 @@ export function VehiclesView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Vehicle | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<Vehicle | null>(null);
+  const [scheduleTarget, setScheduleTarget] = React.useState<Vehicle | null>(null);
+  const deleteVehicle = useDeleteVehicle();
   const { data: vehicles = [], isLoading } = useVehicles();
 
   const filtered = React.useMemo(
@@ -291,6 +294,43 @@ export function VehiclesView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Vehicle ID", "Plate", "Model", "Type", "Status", "Driver ID", "Location", "Fuel %", "Odometer (mi)", "Utilization %"];
+    const rows = vehicles.map((v) => [
+      v.id,
+      v.plate,
+      v.model,
+      v.type,
+      v.status,
+      v.driverId || "",
+      v.location,
+      v.fuelPct,
+      v.odometer,
+      v.utilization,
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "vehicles-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -299,7 +339,7 @@ export function VehiclesView() {
         description={`${vehicles.length} vehicles in fleet · ${vehicles.filter((v) => v.status === "active").length} active`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -336,14 +376,22 @@ export function VehiclesView() {
                 <DropdownMenuItem onClick={() => setSelected(v)}>
                   <Eye className="size-4" /> View details
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEditTarget(v)}>
                   <Pencil className="size-4" /> Edit vehicle
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setScheduleTarget(v)}>
                   <Wrench className="size-4" /> Schedule service
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-danger focus:text-danger">
+                <DropdownMenuItem
+                  className="text-danger focus:text-danger"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to decommission vehicle ${v.plate}?`)) {
+                      deleteVehicle.mutate(v.id);
+                    }
+                  }}
+                  disabled={deleteVehicle.isPending}
+                >
                   Decommission
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -352,8 +400,15 @@ export function VehiclesView() {
         />
       </SectionCard>
 
-      <VehicleDetailSheet vehicle={selected} onClose={() => setSelected(null)} />
+      <VehicleDetailSheet
+        vehicle={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(v) => setEditTarget(v)}
+        onSchedule={(v) => setScheduleTarget(v)}
+      />
       <AddVehicleDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <EditVehicleDialog vehicle={editTarget} open={!!editTarget} onClose={() => setEditTarget(null)} />
+      <ScheduleServiceQuickDialog vehicle={scheduleTarget} open={!!scheduleTarget} onClose={() => setScheduleTarget(null)} />
     </div>
   );
 }
@@ -368,12 +423,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
-      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
+      <span className="text-right text-sm font-medium text-foreground">{children}</span>
     </div>
   );
 }
@@ -381,131 +436,338 @@ function DetailRow({
 function VehicleDetailSheet({
   vehicle,
   onClose,
+  onEdit,
+  onSchedule,
 }: {
   vehicle: Vehicle | null;
   onClose: () => void;
+  onEdit: (v: Vehicle) => void;
+  onSchedule: (v: Vehicle) => void;
 }) {
   const driver = vehicle ? driverById(vehicle.driverId) : null;
   return (
     <Sheet open={!!vehicle} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {vehicle && (
-          <div className="flex flex-col min-h-full relative pb-10">
-            {/* Retro Vertical Grid Lines */}
-            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-
-            {/* Row 1: Header */}
-            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded border border-border bg-white text-foreground/70">
-                    <Truck className="size-4 text-brand" />
-                  </div>
-                  <h3 className="text-xl font-extrabold font-mono tracking-tight text-slate-900">
-                    {vehicle.plate}
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 font-semibold font-mono">
-                  {vehicle.model} · {vehicle.type}
-                </p>
+          <>
+            <SheetHeader className="space-y-3">
+              <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/70">
+                <Truck className="size-5" />
               </div>
-              <div className="mr-6">
+              <div>
+                <SheetTitle className="text-lg">{vehicle.plate}</SheetTitle>
+                <SheetDescription>{vehicle.model} · {vehicle.type}</SheetDescription>
+              </div>
+              <div>
                 <DomainStatusBadge status={vehicle.status} />
               </div>
-            </div>
+            </SheetHeader>
 
-            {/* Row 2: Assignment Card */}
-            <div className="relative px-[45px] py-6">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="space-y-2">
-                <h4 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  Assignment
-                </h4>
-                {driver ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 relative shadow-sm">
-                    {/* Plus corner markers for card */}
-                    <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                    <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                    <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                    <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-9 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white border-2 border-slate-200 font-mono shadow-sm">
-                        {driver.initials}
-                      </div>
-                      <div>
-                        <p className="text-sm font-extrabold text-slate-800 font-display">{driver.name}</p>
-                        <p className="text-xs text-slate-400 font-medium font-mono">{driver.license}</p>
-                      </div>
+            <div className="mt-6 space-y-1">
+              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Assignment
+              </h4>
+              {driver ? (
+                <div className="rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground/70">
+                      {driver.initials}
                     </div>
-                    <div className="mt-3 border-t border-slate-100 pt-2.5 flex items-center gap-2 text-xs font-bold text-slate-400 font-mono">
-                      <Phone className="size-3.5 text-slate-400" /> {driver.phone}
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{driver.name}</p>
+                      <p className="text-xs text-muted-foreground">{driver.license}</p>
                     </div>
                   </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 py-6 text-center text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
-                    No driver assigned
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Phone className="size-3" /> {driver.phone}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                  No driver assigned
+                </div>
+              )}
             </div>
 
-            {/* Row 3: Detail Attributes Grid */}
-            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
+            <div className="mt-6 divide-y divide-border/60">
+              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 Vehicle Information
               </h4>
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
-                {/* Plus corner decoration for details grid */}
-                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                <DetailRow label="VIN" icon={<Truck className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-800 font-bold">{vehicle.vin}</span>
-                </DetailRow>
-                <DetailRow label="Location" icon={<MapPin className="size-3.5 text-slate-400" />}>
-                  <span className="text-slate-800 font-bold font-display max-w-[200px] truncate block">{vehicle.location}</span>
-                </DetailRow>
-                <DetailRow label="Odometer" icon={<Gauge className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-800">{formatNumber(vehicle.odometer)} mi</span>
-                </DetailRow>
-                <DetailRow label="Fuel level" icon={<Fuel className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono font-bold text-slate-800">{vehicle.fuelPct}%</span>
-                </DetailRow>
-                <DetailRow label="Utilization" icon={<Gauge className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono font-bold text-slate-800">{vehicle.utilization}%</span>
-                </DetailRow>
-                <DetailRow label="Last service" icon={<Wrench className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-xs text-slate-600">{vehicle.lastService}</span>
-                </DetailRow>
-                <DetailRow label="Next service" icon={<CalendarClock className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-xs text-slate-600">{vehicle.nextService}</span>
-                </DetailRow>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-8 flex gap-3 mr-6">
-                <Button variant="outline" size="sm" className="flex-1 font-mono font-bold">
-                  <Pencil className="size-4 mr-1.5" /> Edit
-                </Button>
-                <Button size="sm" className="flex-1 font-mono font-bold bg-brand text-white hover:bg-brand/90">
-                  <Wrench className="size-4 mr-1.5" /> Schedule Service
-                </Button>
-              </div>
+              <DetailRow label="VIN" icon={<Truck className="size-3.5" />}>
+                {vehicle.vin}
+              </DetailRow>
+              <DetailRow label="Location" icon={<MapPin className="size-3.5" />}>
+                <span className="max-w-[200px] truncate">{vehicle.location}</span>
+              </DetailRow>
+              <DetailRow label="Odometer" icon={<Gauge className="size-3.5" />}>
+                {formatNumber(vehicle.odometer)} mi
+              </DetailRow>
+              <DetailRow label="Fuel level" icon={<Fuel className="size-3.5" />}>
+                {vehicle.fuelPct}%
+              </DetailRow>
+              <DetailRow label="Utilization" icon={<Gauge className="size-3.5" />}>
+                {vehicle.utilization}%
+              </DetailRow>
+              <DetailRow label="Last service" icon={<Wrench className="size-3.5" />}>
+                {vehicle.lastService}
+              </DetailRow>
+              <DetailRow label="Next service" icon={<CalendarClock className="size-3.5" />}>
+                {vehicle.nextService}
+              </DetailRow>
             </div>
-          </div>
+
+            <div className="mt-6 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onEdit(vehicle);
+                  onClose();
+                }}
+              >
+                <Pencil className="size-4" /> Edit
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onSchedule(vehicle);
+                  onClose();
+                }}
+              >
+                <Wrench className="size-4" /> Schedule Service
+              </Button>
+            </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function EditVehicleDialog({
+  vehicle,
+  open,
+  onClose,
+}: {
+  vehicle: Vehicle | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const updateVehicle = useUpdateVehicle();
+  const [form, setForm] = React.useState({
+    registrationNumber: "",
+    name: "",
+    type: "",
+    maxLoadCapacity: "",
+    acquisitionCost: "",
+    region: "",
+    odometer: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (vehicle) {
+      setForm({
+        registrationNumber: vehicle.plate,
+        name: vehicle.model,
+        type: vehicle.type,
+        maxLoadCapacity: String(vehicle.maxLoadCapacity ?? 15),
+        acquisitionCost: String(vehicle.acquisitionCost ?? 120000),
+        region: vehicle.location,
+        odometer: String(vehicle.odometer),
+      });
+    }
+  }, [vehicle]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!vehicle) return;
+    setError(null);
+    if (!form.registrationNumber || !form.name || !form.type || !form.maxLoadCapacity || !form.acquisitionCost) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await updateVehicle.mutateAsync({
+        id: vehicle.id,
+        registrationNumber: form.registrationNumber.trim().toUpperCase(),
+        name: form.name.trim(),
+        type: form.type,
+        maxLoadCapacity: Number(form.maxLoadCapacity),
+        acquisitionCost: Number(form.acquisitionCost),
+        region: form.region.trim() || undefined,
+        odometer: form.odometer ? Number(form.odometer) : undefined,
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to update vehicle.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Vehicle</DialogTitle>
+          <DialogDescription>Modify vehicle specifications and operations depot mapping.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-reg">Registration Number *</Label>
+              <Input id="e-reg" placeholder="TX-7841" value={form.registrationNumber} onChange={(e) => set("registrationNumber", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-vtype">Type *</Label>
+              <Select value={form.type} onValueChange={(v) => set("type", v)}>
+                <SelectTrigger id="e-vtype"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {VEHICLE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="e-vname">Vehicle Name / Model *</Label>
+            <Input id="e-vname" placeholder="Volvo VNL 760" value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-capacity">Max Load Capacity *</Label>
+              <Input id="e-capacity" type="number" min="0" step="0.1" value={form.maxLoadCapacity} onChange={(e) => set("maxLoadCapacity", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-cost">Acquisition Cost ($) *</Label>
+              <Input id="e-cost" type="number" min="0" value={form.acquisitionCost} onChange={(e) => set("acquisitionCost", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-region">Region</Label>
+              <Input id="e-region" placeholder="Dallas, TX" value={form.region} onChange={(e) => set("region", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-odo">Odometer (mi)</Label>
+              <Input id="e-odo" type="number" min="0" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateVehicle.isPending}>
+              {updateVehicle.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ScheduleServiceQuickDialog({
+  vehicle,
+  open,
+  onClose,
+}: {
+  vehicle: Vehicle | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createMaintenance = useCreateMaintenance();
+  const [form, setForm] = React.useState({
+    maintenanceType: "Preventive",
+    description: "",
+    priority: "medium",
+    cost: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!vehicle) return;
+    setError(null);
+    if (!form.description || !form.cost) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createMaintenance.mutateAsync({
+        vehicleId: vehicle.id,
+        maintenanceType: form.maintenanceType,
+        description: form.description.trim(),
+        priority: form.priority.toUpperCase(),
+        cost: Number(form.cost),
+      });
+      setForm({ maintenanceType: "Preventive", description: "", priority: "medium", cost: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to schedule service.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Schedule Maintenance</DialogTitle>
+          <DialogDescription>
+            Book a service log for {vehicle?.plate} — {vehicle?.model}. This moves the vehicle to IN_SHOP status.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="m-type">Service Type *</Label>
+              <Select value={form.maintenanceType} onValueChange={(v) => set("maintenanceType", v)}>
+                <SelectTrigger id="m-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Preventive">Preventive</SelectItem>
+                  <SelectItem value="Repair">Repair</SelectItem>
+                  <SelectItem value="Inspection">Inspection</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-pri">Priority *</Label>
+              <Select value={form.priority} onValueChange={(v) => set("priority", v)}>
+                <SelectTrigger id="m-pri"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-desc">Description *</Label>
+            <Input id="m-desc" placeholder="Oil change & tire rotation" value={form.description} onChange={(e) => set("description", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-cost">Estimated Cost ($) *</Label>
+            <Input id="m-cost" type="number" min="0" placeholder="350" value={form.cost} onChange={(e) => set("cost", e.target.value)} />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createMaintenance.isPending}>
+              {createMaintenance.isPending ? "Scheduling…" : "Schedule"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

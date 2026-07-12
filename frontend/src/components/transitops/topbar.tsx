@@ -54,8 +54,26 @@ export function Topbar() {
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [depotOpen, setDepotOpen] = React.useState(false);
+  const [helpOpen, setHelpOpen] = React.useState(false);
   const [now, setNow] = React.useState<string>("");
-  const unread = alerts.filter((a) => !a.acknowledged).length;
+
+  const [notifications, setNotifications] = React.useState(() =>
+    alerts.map((a) => ({ ...a, read: false }))
+  );
+
+  const unreadCount = React.useMemo(() => {
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
+
+  const toggleRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  };
+
+  const markAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
 
   const initials = React.useMemo(() => {
     if (!user?.name) return "U";
@@ -139,7 +157,7 @@ export function Topbar() {
             <span className="text-xs text-muted-foreground">IST</span>
           </div>
 
-          <Button variant="ghost" size="icon" className="size-8" aria-label="Help">
+          <Button variant="ghost" size="icon" className="size-8" aria-label="Help" onClick={() => setHelpOpen(true)}>
             <HelpCircle className="size-4.5" />
           </Button>
 
@@ -152,7 +170,7 @@ export function Topbar() {
                 aria-label="Notifications"
               >
                 <Bell className="size-4.5" />
-                {unread > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute right-1 top-1 flex size-1.5">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-60" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-danger" />
@@ -164,25 +182,29 @@ export function Topbar() {
               <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
                 <p className="text-sm font-semibold">Notifications</p>
                 <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-medium text-danger tnum">
-                  {unread} new
+                  {unreadCount} new
                 </span>
               </div>
               <div className="scrollbar-thin max-h-80 overflow-y-auto">
-                {alerts.slice(0, 6).map((a) => (
+                {notifications.slice(0, 6).map((a) => (
                   <div
                     key={a.id}
-                    className="flex gap-3 border-b border-border/60 px-3 py-2.5 last:border-0 hover:bg-muted/50"
+                    onClick={() => toggleRead(a.id)}
+                    className={cn(
+                      "flex gap-3 border-b border-border/60 px-3 py-2.5 last:border-0 hover:bg-muted/50 transition-colors cursor-pointer",
+                      !a.read && "bg-brand/5 font-medium"
+                    )}
                   >
                     <div className="mt-0.5">
-                      <StatusBadge tone={severityTone(a.severity)} dot>
+                      <StatusBadge tone={severityTone(a.severity)} dot={!a.read}>
                         {a.type}
                       </StatusBadge>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-foreground">
+                      <p className="truncate text-xs font-semibold text-foreground">
                         {a.ref}
                       </p>
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                      <p className={cn("line-clamp-2 text-xs text-muted-foreground", !a.read && "text-foreground/90")}>
                         {a.message}
                       </p>
                       <p className="mt-0.5 text-[10px] text-muted-foreground/70">
@@ -193,8 +215,8 @@ export function Topbar() {
                 ))}
               </div>
               <div className="border-t border-border p-2">
-                <Button variant="ghost" size="sm" className="w-full justify-center text-xs">
-                  View all alerts
+                <Button variant="ghost" size="sm" className="w-full justify-center text-xs" onClick={markAllRead}>
+                  Mark all as read
                 </Button>
               </div>
             </DropdownMenuContent>
@@ -249,6 +271,7 @@ export function Topbar() {
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} user={user} displayRole={displayRole} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SwitchDepotDialog open={depotOpen} onClose={() => setDepotOpen(false)} />
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
 }
@@ -381,6 +404,48 @@ function SwitchDepotDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <p className="text-[11px] text-muted-foreground bg-muted/40 p-3 rounded border border-border/60">
             Note: Switching depots scopes your dashboard counts, fleet status alerts, and map assets to the selected regional terminal location.
           </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function HelpDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Documentation & Help Center</DialogTitle>
+          <DialogDescription>Get quick help and guides on using the Shift Platform.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-3 text-xs leading-relaxed">
+          <div className="space-y-2">
+            <h4 className="font-semibold text-foreground text-sm">💡 Quick Start Guide</h4>
+            <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+              <li><strong>Vehicles:</strong> Manage your trucks, vans, and trailers. Update status from "Available" to "In Shop" for maintenance.</li>
+              <li><strong>Drivers:</strong> Monitor driver license expiry, verify status, and assign them to trips.</li>
+              <li><strong>Trips:</strong> Dispatch new trips. Source, destination, and payload capacities are automatically validated.</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-foreground text-sm">⌨️ Keyboard Shortcuts</h4>
+            <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+              <div className="flex justify-between border border-border/60 bg-muted/30 p-2 rounded">
+                <span className="text-muted-foreground">Search Hub</span>
+                <kbd className="bg-background px-1 rounded border border-border">⌘K</kbd>
+              </div>
+              <div className="flex justify-between border border-border/60 bg-muted/30 p-2 rounded">
+                <span className="text-muted-foreground">Toggle Sidebar</span>
+                <kbd className="bg-background px-1 rounded border border-border">⌘B</kbd>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-foreground text-sm">📞 Support Contact</h4>
+            <p className="text-muted-foreground">
+              Need advanced assistance? Reach out directly to our enterprise support desk at <span className="text-brand font-medium underline">support@shiftops.io</span> or call toll-free at +1 (800) 555-SHFT.
+            </p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

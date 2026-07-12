@@ -14,7 +14,7 @@ import {
   Eye,
   XCircle,
   Send,
-  CircleCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ import { DomainStatusBadge } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { DataTable, type Column } from "../tables/data-table";
-import { formatCurrency, vehicleById, driverById, type Trip } from "@/lib/transit-data";
+import { formatCurrency, type Trip } from "@/lib/transit-data";
 import {
   useTrips,
   useVehicles,
@@ -65,6 +65,7 @@ import {
   useDispatchTrip,
   useCompleteTrip,
 } from "@/hooks/queries";
+import type { Vehicle, Driver } from "@/lib/transit-data";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -100,6 +101,7 @@ export function NewTripDialog({
   const createTrip = useCreateTrip();
   const { data: vehicles = [] } = useVehicles();
   const { data: drivers = [] } = useDrivers();
+  const { data: trips = [] } = useTrips();
 
   const [form, setForm] = React.useState({
     source: "",
@@ -140,8 +142,23 @@ export function NewTripDialog({
     }
   }
 
-  const availableVehicles = vehicles.filter((v) => v.status === "available" || v.status === "idle");
-  const availableDrivers = drivers.filter((d) => d.status === "available" || d.status === "off_duty");
+  const assignedVehicleIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.vehicleId)
+  );
+  const assignedDriverIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.driverId)
+  );
+
+  const availableVehicles = vehicles.filter(
+    (v) => (v.status === "available" || v.status === "idle") && !assignedVehicleIds.has(v.id)
+  );
+  const availableDrivers = drivers.filter(
+    (d) => (d.status === "available" || d.status === "off_duty") && !assignedDriverIds.has(d.id)
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -224,11 +241,24 @@ export function TripsView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Trip | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
-  const [completeOpen, setCompleteOpen] = React.useState<Trip | null>(null);
+  const [completeTripTarget, setCompleteTripTarget] = React.useState<Trip | null>(null);
   const { data: trips = [], isLoading } = useTrips();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
   const cancelTrip = useCancelTrip();
   const dispatchTrip = useDispatchTrip();
-  const completeTrip = useCompleteTrip();
+
+  const vehicleMap = React.useMemo(() => {
+    const m = new Map<string, Vehicle>();
+    vehicles.forEach((v) => m.set(v.id, v));
+    return m;
+  }, [vehicles]);
+
+  const driverMap = React.useMemo(() => {
+    const m = new Map<string, Driver>();
+    drivers.forEach((d) => m.set(d.id, d));
+    return m;
+  }, [drivers]);
 
   const filtered = React.useMemo(
     () => (filter === "all" ? trips : trips.filter((t) => t.status === filter)),
@@ -271,15 +301,15 @@ export function TripsView() {
     {
       key: "vehicle",
       header: "Vehicle",
-      cell: (t) => vehicleById(t.vehicleId)?.plate ?? <span className="text-muted-foreground text-xs">{t.vehicleId?.slice(0, 8)}</span>,
-      sortValue: (t) => vehicleById(t.vehicleId)?.plate ?? "",
+      cell: (t) => vehicleMap.get(t.vehicleId)?.plate ?? <span className="text-muted-foreground text-xs">{t.vehicleId?.slice(0, 8)}</span>,
+      sortValue: (t) => vehicleMap.get(t.vehicleId)?.plate ?? "",
       hideOnMobile: true,
     },
     {
       key: "driver",
       header: "Driver",
-      cell: (t) => driverById(t.driverId)?.name ?? <span className="text-muted-foreground text-xs">{t.driverId?.slice(0, 8)}</span>,
-      sortValue: (t) => driverById(t.driverId)?.name ?? "",
+      cell: (t) => driverMap.get(t.driverId)?.name ?? <span className="text-muted-foreground text-xs">{t.driverId?.slice(0, 8)}</span>,
+      sortValue: (t) => driverMap.get(t.driverId)?.name ?? "",
       hideOnMobile: true,
     },
     {
@@ -314,6 +344,42 @@ export function TripsView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Trip ID", "Origin", "Destination", "Vehicle ID", "Driver ID", "Status", "Distance (km)", "Revenue ($)", "Departure"];
+    const rows = trips.map((t) => [
+      t.id,
+      t.origin,
+      t.destination,
+      t.vehicleId,
+      t.driverId,
+      t.status,
+      t.distance,
+      t.revenue,
+      t.departure ? new Date(t.departure).toISOString() : "",
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "trips-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -322,7 +388,7 @@ export function TripsView() {
         description={`${trips.length} trips · ${trips.filter((t) => t.status === "in_transit").length} in transit`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -374,8 +440,8 @@ export function TripsView() {
             t.id.toLowerCase().includes(q) ||
             t.route.toLowerCase().includes(q) ||
             t.cargo.toLowerCase().includes(q) ||
-            (vehicleById(t.vehicleId)?.plate ?? "").toLowerCase().includes(q) ||
-            (driverById(t.driverId)?.name ?? "").toLowerCase().includes(q)
+            (vehicleMap.get(t.vehicleId)?.plate ?? "").toLowerCase().includes(q) ||
+            (driverMap.get(t.driverId)?.name ?? "").toLowerCase().includes(q)
           }
           searchPlaceholder="Search by trip, route, vehicle…"
           pageSize={10}
@@ -401,9 +467,9 @@ export function TripsView() {
                 )}
                 {t.status === "in_transit" && (
                   <DropdownMenuItem
-                    onClick={() => setCompleteOpen(t)}
+                    onClick={() => setCompleteTripTarget(t)}
                   >
-                    <CircleCheck className="size-4" /> Complete trip
+                    <CheckCircle2 className="size-4" /> Complete trip
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem>
@@ -427,7 +493,7 @@ export function TripsView() {
 
       <TripDetailSheet trip={selected} onClose={() => setSelected(null)} />
       <NewTripDialog open={addOpen} onClose={() => setAddOpen(false)} />
-      <CompleteTripDialog open={!!completeOpen} trip={completeOpen} onClose={() => setCompleteOpen(null)} />
+      <CompleteTripDialog trip={completeTripTarget} open={!!completeTripTarget} onClose={() => setCompleteTripTarget(null)} />
     </div>
   );
 }
@@ -442,12 +508,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
-      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
+      <span className="text-right text-sm font-medium text-foreground">{children}</span>
     </div>
   );
 }
@@ -459,118 +525,78 @@ function TripDetailSheet({
   trip: Trip | null;
   onClose: () => void;
 }) {
-  const vehicle = trip ? vehicleById(trip.vehicleId) : null;
-  const driver = trip ? driverById(trip.driverId) : null;
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
+  const vehicle = trip ? (vehicles.find((v) => v.id === trip.vehicleId) ?? null) : null;
+  const driver = trip ? (drivers.find((d) => d.id === trip.driverId) ?? null) : null;
   return (
     <Sheet open={!!trip} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {trip && (
-          <div className="flex flex-col min-h-full relative pb-10">
-            {/* Retro Vertical Grid Lines */}
-            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-
-            {/* Row 1: Header */}
-            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded border border-border bg-white text-foreground/70">
-                    <RouteIcon className="size-4 text-brand" />
-                  </div>
-                  <h3 className="text-xl font-extrabold font-mono tracking-tight text-slate-900">
-                    {trip.id.slice(0, 8).toUpperCase()}
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 font-semibold font-mono">
-                  {trip.cargo} · {trip.weightLb.toLocaleString()} kg
-                </p>
+          <>
+            <SheetHeader className="space-y-3">
+              <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/70">
+                <RouteIcon className="size-5" />
               </div>
-              <div className="mr-6">
+              <div>
+                <SheetTitle className="text-lg font-mono">{trip.id.slice(0, 8).toUpperCase()}</SheetTitle>
+                <SheetDescription>{trip.cargo} · {trip.weightLb.toLocaleString()} kg</SheetDescription>
+              </div>
+              <div>
                 <DomainStatusBadge status={trip.status} />
               </div>
-            </div>
+            </SheetHeader>
 
-            {/* Row 2: Route Progress Card */}
-            <div className="relative px-[45px] py-6">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-5 relative shadow-sm">
-                {/* Corner intersection plus symbols for Card */}
-                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Origin</p>
-                    <p className="text-base font-extrabold text-slate-800 font-display">{trip.origin}</p>
-                  </div>
-                  <ArrowRight className="mx-3 size-5 shrink-0 text-brand" />
-                  <div className="min-w-0 text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Destination</p>
-                    <p className="text-base font-extrabold text-slate-800 font-display">{trip.destination}</p>
-                  </div>
+            <div className="mt-5 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Origin</p>
+                  <p className="text-sm font-medium text-foreground">{trip.origin}</p>
                 </div>
-                <div className="mt-4 border-t border-slate-100 pt-3">
-                  <div className="mb-1.5 flex items-center justify-between text-xs font-bold font-mono">
-                    <span className="text-slate-400">PROGRESS</span>
-                    <span className="text-brand tnum">{trip.progress}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 border border-slate-200/50">
-                    <div
-                      className="h-full rounded-full bg-brand transition-all duration-500"
-                      style={{ width: `${trip.progress}%` }}
-                    />
-                  </div>
+                <ArrowRight className="mx-3 size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 text-right">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p>
+                  <p className="text-sm font-medium text-foreground">{trip.destination}</p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium text-foreground tnum">{trip.progress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.07]">
+                  <div
+                    className="h-full rounded-full bg-brand"
+                    style={{ width: `${trip.progress}%` }}
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Row 3: Detail Attributes Grid */}
-            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
+            <div className="mt-5 divide-y divide-border/60">
+              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 Trip Details
               </h4>
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
-                {/* Corner decoration plus indicators for details card */}
-                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                <DetailRow label="Vehicle" icon={<Package className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-800 font-bold">{vehicle?.plate ?? trip.vehicleId?.slice(0, 8)}</span>
-                  {vehicle && <span className="text-slate-400 text-xs ml-1 font-mono">({vehicle.model})</span>}
-                </DetailRow>
-                <DetailRow label="Driver" icon={<MapPin className="size-3.5 text-slate-400" />}>
-                  <span className="text-slate-800 font-bold font-display">{driver?.name ?? trip.driverId?.slice(0, 8)}</span>
-                </DetailRow>
-                <DetailRow label="Departure" icon={<Clock className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-xs text-slate-600">
-                    {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
-                  </span>
-                </DetailRow>
-                <DetailRow label="ETA" icon={<Clock className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-xs text-slate-600">
-                    {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
-                  </span>
-                </DetailRow>
-                <DetailRow label="Distance" icon={<MapPin className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono font-bold text-slate-800">{trip.distance} km</span>
-                </DetailRow>
-                <DetailRow label="Revenue" icon={<Package className="size-3.5 text-slate-400" />}>
-                  <span className="font-bold text-brand">{formatCurrency(trip.revenue)}</span>
-                </DetailRow>
-              </div>
+              <DetailRow label="Vehicle" icon={<Package className="size-3.5" />}>
+                {vehicle?.plate ?? trip.vehicleId?.slice(0, 8)} · {vehicle?.model}
+              </DetailRow>
+              <DetailRow label="Driver" icon={<MapPin className="size-3.5" />}>
+                {driver?.name ?? trip.driverId?.slice(0, 8)}
+              </DetailRow>
+              <DetailRow label="Departure" icon={<Clock className="size-3.5" />}>
+                {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
+              </DetailRow>
+              <DetailRow label="ETA" icon={<Clock className="size-3.5" />}>
+                {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
+              </DetailRow>
+              <DetailRow label="Distance" icon={<MapPin className="size-3.5" />}>
+                {trip.distance} km
+              </DetailRow>
+              <DetailRow label="Revenue" icon={<Package className="size-3.5" />}>
+                {formatCurrency(trip.revenue)}
+              </DetailRow>
             </div>
-          </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
@@ -578,12 +604,12 @@ function TripDetailSheet({
 }
 
 export function CompleteTripDialog({
-  open,
   trip,
+  open,
   onClose,
 }: {
-  open: boolean;
   trip: Trip | null;
+  open: boolean;
   onClose: () => void;
 }) {
   const completeTrip = useCompleteTrip();
@@ -594,13 +620,12 @@ export function CompleteTripDialog({
   });
   const [error, setError] = React.useState<string | null>(null);
 
-  // Reset form when trip changes
   React.useEffect(() => {
     if (trip) {
       setForm({
-        actualDistance: String(trip.distance || ""),
-        fuelConsumed: "",
-        revenue: String(trip.revenue || ""),
+        actualDistance: String(trip.distance),
+        fuelConsumed: String(Math.round(trip.distance * 0.28)),
+        revenue: String(Math.round(trip.distance * 3.5)),
       });
     }
   }, [trip]);
@@ -611,15 +636,13 @@ export function CompleteTripDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     if (!trip) return;
-
+    setError(null);
     const { actualDistance, fuelConsumed, revenue } = form;
     if (!actualDistance || !fuelConsumed || !revenue) {
       setError("Please fill in all required fields.");
       return;
     }
-
     try {
       await completeTrip.mutateAsync({
         id: trip.id,
@@ -627,7 +650,6 @@ export function CompleteTripDialog({
         fuelConsumed: Number(fuelConsumed),
         revenue: Number(revenue),
       });
-      setForm({ actualDistance: "", fuelConsumed: "", revenue: "" });
       onClose();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -641,42 +663,39 @@ export function CompleteTripDialog({
         <DialogHeader>
           <DialogTitle>Complete Trip</DialogTitle>
           <DialogDescription>
-            Enter the final actual metrics for trip {trip?.id.slice(0, 8).toUpperCase()} to close it out.
+            Enter final transit details to release the vehicle and driver back to Available status.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="tactualdist">Actual Distance (km) *</Label>
+            <Label htmlFor="c_dist">Actual Distance (km) *</Label>
             <Input
-              id="tactualdist"
+              id="c_dist"
               type="number"
               min="0"
-              step="0.1"
-              placeholder="e.g. 120"
+              step="1"
               value={form.actualDistance}
               onChange={(e) => set("actualDistance", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="tfuel">Fuel Consumed (Liters) *</Label>
+            <Label htmlFor="c_fuel">Fuel Consumed (Liters) *</Label>
             <Input
-              id="tfuel"
+              id="c_fuel"
               type="number"
               min="0"
               step="0.1"
-              placeholder="e.g. 25.5"
               value={form.fuelConsumed}
               onChange={(e) => set("fuelConsumed", e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="trev">Revenue ($) *</Label>
+            <Label htmlFor="c_rev">Final Trip Revenue ($) *</Label>
             <Input
-              id="trev"
+              id="c_rev"
               type="number"
               min="0"
-              step="0.01"
-              placeholder="e.g. 850.00"
+              step="1"
               value={form.revenue}
               onChange={(e) => set("revenue", e.target.value)}
             />
@@ -687,7 +706,7 @@ export function CompleteTripDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={completeTrip.isPending}>
-              {completeTrip.isPending ? "Completing…" : "Complete Trip"}
+              {completeTrip.isPending ? "Completing..." : "Complete Trip"}
             </Button>
           </DialogFooter>
         </form>

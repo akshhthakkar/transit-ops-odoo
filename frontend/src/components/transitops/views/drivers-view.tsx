@@ -53,8 +53,24 @@ import { SectionCard } from "../section-card";
 import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
-import { daysUntil, vehicleById, type Driver } from "@/lib/transit-data";
-import { useDrivers, useCreateDriver } from "@/hooks/queries";
+import { type Driver } from "@/lib/transit-data";
+import {
+  useDrivers,
+  useCreateDriver,
+  useUpdateDriver,
+  useDeleteDriver,
+  useCreateTrip,
+  useVehicles,
+  useTrips,
+} from "@/hooks/queries";
+
+// Use real current date for license expiry calculations
+function daysUntil(iso: string): number {
+  if (!iso) return 9999;
+  const now = Date.now();
+  const target = new Date(iso).getTime();
+  return Math.round((target - now) / (1000 * 60 * 60 * 24));
+}
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -165,6 +181,9 @@ export function DriversView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Driver | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<Driver | null>(null);
+  const [assignTarget, setAssignTarget] = React.useState<Driver | null>(null);
+  const deleteDriver = useDeleteDriver();
   const { data: drivers = [], isLoading } = useDrivers();
 
   const filtered = React.useMemo(
@@ -270,6 +289,42 @@ export function DriversView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Driver ID", "Name", "License", "Status", "Home Base", "Phone", "Rating", "Trips Completed", "Hours This Week"];
+    const rows = drivers.map((d) => [
+      d.id,
+      d.name,
+      d.license,
+      d.status,
+      d.homeBase,
+      d.phone,
+      d.rating,
+      d.tripsCompleted,
+      d.hoursThisWeek,
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "drivers-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -278,7 +333,7 @@ export function DriversView() {
         description={`${drivers.length} drivers · ${drivers.filter((d) => d.status === "on_duty").length} currently on duty`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -314,14 +369,22 @@ export function DriversView() {
                 <DropdownMenuItem onClick={() => setSelected(d)}>
                   <Eye className="size-4" /> View profile
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEditTarget(d)}>
                   <Pencil className="size-4" /> Edit driver
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAssignTarget(d)}>
                   <Truck className="size-4" /> Assign vehicle
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-danger focus:text-danger">
+                <DropdownMenuItem
+                  className="text-danger focus:text-danger"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to deactivate driver ${d.name}?`)) {
+                      deleteDriver.mutate(d.id);
+                    }
+                  }}
+                  disabled={deleteDriver.isPending}
+                >
                   Deactivate
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -330,8 +393,15 @@ export function DriversView() {
         />
       </SectionCard>
 
-      <DriverDetailSheet driver={selected} onClose={() => setSelected(null)} />
+      <DriverDetailSheet
+        driver={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(d) => setEditTarget(d)}
+        onAssign={(d) => setAssignTarget(d)}
+      />
       <AddDriverDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <EditDriverDialog driver={editTarget} open={!!editTarget} onClose={() => setEditTarget(null)} />
+      <AssignVehicleDialog driver={assignTarget} open={!!assignTarget} onClose={() => setAssignTarget(null)} />
     </div>
   );
 }
@@ -346,12 +416,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
-      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <span className="flex items-center gap-2 text-sm text-muted-foreground">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
+      <span className="text-right text-sm font-medium text-foreground">{children}</span>
     </div>
   );
 }
@@ -359,134 +429,346 @@ function DetailRow({
 function DriverDetailSheet({
   driver,
   onClose,
+  onEdit,
+  onAssign,
 }: {
   driver: Driver | null;
   onClose: () => void;
+  onEdit: (d: Driver) => void;
+  onAssign: (d: Driver) => void;
 }) {
-  const vehicle = driver ? vehicleById(driver.assignedVehicleId) : null;
+  const { data: vehicles = [] } = useVehicles();
+  const vehicle = driver ? (vehicles.find((v) => v.id === driver.assignedVehicleId) ?? null) : null;
   return (
     <Sheet open={!!driver} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
         {driver && (
-          <div className="flex flex-col min-h-full relative pb-10">
-            {/* Retro Vertical Grid Lines */}
-            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
-
-            {/* Row 1: Header */}
-            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white border-2 border-slate-200 font-mono shadow-sm">
-                  {driver.initials}
-                </div>
-                <div>
-                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight font-display">{driver.name}</h3>
-                  <p className="text-xs text-slate-500 font-bold font-mono">{driver.license}</p>
-                </div>
+          <>
+            <SheetHeader className="space-y-3">
+              <div className="flex size-11 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
+                {driver.initials}
               </div>
-              <div className="mr-6">
+              <div>
+                <SheetTitle className="text-lg">{driver.name}</SheetTitle>
+                <SheetDescription>{driver.license}</SheetDescription>
+              </div>
+              <div>
                 <DomainStatusBadge status={driver.status} />
               </div>
-            </div>
+            </SheetHeader>
 
-            {/* Row 2: KPI Grid Cards */}
-            <div className="relative px-[45px] py-6">
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Hours</p>
-                  <p className="mt-1 text-lg font-extrabold text-slate-800 font-mono tnum">{driver.hoursThisWeek}h</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Trips</p>
-                  <p className="mt-1 text-lg font-extrabold text-slate-800 font-mono tnum">{driver.tripsCompleted}</p>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Rating</p>
-                  <p className="mt-1 flex items-center justify-center gap-1 text-lg font-extrabold text-slate-800 font-mono tnum">
-                    {driver.rating.toFixed(1)}
-                    <Star className="size-3.5 fill-warning text-warning shrink-0" />
-                  </p>
-                </div>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours</p>
+                <p className="mt-1 text-lg font-semibold text-foreground tnum">{driver.hoursThisWeek}h</p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Trips</p>
+                <p className="mt-1 text-lg font-semibold text-foreground tnum">{driver.tripsCompleted}</p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</p>
+                <p className="mt-1 flex items-center gap-1 text-lg font-semibold text-foreground tnum">
+                  {driver.rating.toFixed(1)}
+                  <Star className="size-3.5 fill-warning text-warning" />
+                </p>
               </div>
             </div>
 
-            {/* Row 3: Assigned Vehicle (Optional Card) */}
             {vehicle && (
-              <div className="relative px-[45px] py-6">
-                <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
-                <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-                <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
-
-                <div className="rounded-lg border border-slate-200 bg-white p-4 relative shadow-sm">
-                  {/* Plus corner markers for Assigned Card */}
-                  <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                  <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                  <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                  <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    Assigned Vehicle
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded border border-slate-200 bg-slate-50 text-slate-500">
-                      <Truck className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-extrabold text-slate-800 font-mono">{vehicle.plate}</p>
-                      <p className="text-xs text-slate-400 font-medium">{vehicle.model}</p>
-                    </div>
+              <div className="mt-4 rounded-lg border border-border p-3">
+                <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Assigned Vehicle
+                </p>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-8 items-center justify-center rounded-md bg-muted/40 text-muted-foreground">
+                    <Truck className="size-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{vehicle.plate}</p>
+                    <p className="text-xs text-muted-foreground">{vehicle.model}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Row 4: Contact & Records Grid */}
-            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
+            <div className="mt-4 divide-y divide-border/60">
+              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 Contact & Records
               </h4>
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
-                {/* Plus corner decoration for details grid */}
-                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
-
-                <DetailRow label="Phone" icon={<Phone className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-800">{driver.phone}</span>
-                </DetailRow>
-                <DetailRow label="Home base" icon={<MapPin className="size-3.5 text-slate-400" />}>
-                  <span className="text-slate-800">{driver.homeBase || "—"}</span>
-                </DetailRow>
-                <DetailRow label="License expiry" icon={<CalendarClock className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-700">{driver.licenseExpiry}</span>
-                </DetailRow>
-                <DetailRow label="Weekly hours" icon={<Clock className="size-3.5 text-slate-400" />}>
-                  <span className="font-mono text-slate-700">{driver.hoursThisWeek}h / 60h</span>
-                </DetailRow>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-8 flex gap-3 mr-6">
-                <Button variant="outline" size="sm" className="flex-1 font-mono font-bold">
-                  <Pencil className="size-4 mr-1.5" /> Edit
-                </Button>
-                <Button size="sm" className="flex-1 font-mono font-bold bg-brand text-white hover:bg-brand/90">
-                  <Truck className="size-4 mr-1.5" /> Assign Vehicle
-                </Button>
-              </div>
+              <DetailRow label="Phone" icon={<Phone className="size-3.5" />}>
+                {driver.phone}
+              </DetailRow>
+              <DetailRow label="Home base" icon={<MapPin className="size-3.5" />}>
+                {driver.homeBase}
+              </DetailRow>
+              <DetailRow label="License expiry" icon={<CalendarClock className="size-3.5" />}>
+                {driver.licenseExpiry}
+              </DetailRow>
+              <DetailRow label="Weekly hours" icon={<Clock className="size-3.5" />}>
+                {driver.hoursThisWeek}h / 60h
+              </DetailRow>
             </div>
-          </div>
+
+             <div className="mt-6 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onEdit(driver);
+                  onClose();
+                }}
+              >
+                <Pencil className="size-4" /> Edit
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onAssign(driver);
+                  onClose();
+                }}
+              >
+                <Truck className="size-4" /> Assign Vehicle
+              </Button>
+            </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function EditDriverDialog({
+  driver,
+  open,
+  onClose,
+}: {
+  driver: Driver | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const updateDriver = useUpdateDriver();
+  const [form, setForm] = React.useState({
+    name: "",
+    licenseNumber: "",
+    licenseCategory: "",
+    licenseExpiryDate: "",
+    contactNumber: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (driver) {
+      setForm({
+        name: driver.name,
+        licenseNumber: driver.license,
+        licenseCategory: "Class A",
+        licenseExpiryDate: driver.licenseExpiry ? driver.licenseExpiry.split("T")[0] : "",
+        contactNumber: driver.phone,
+      });
+    }
+  }, [driver]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!driver) return;
+    setError(null);
+    if (!form.name || !form.licenseNumber || !form.licenseCategory || !form.licenseExpiryDate || !form.contactNumber) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await updateDriver.mutateAsync({
+        id: driver.id,
+        name: form.name.trim(),
+        licenseNumber: form.licenseNumber.trim().toUpperCase(),
+        licenseCategory: form.licenseCategory,
+        licenseExpiryDate: new Date(form.licenseExpiryDate).toISOString(),
+        contactNumber: form.contactNumber.trim(),
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to update driver.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Driver</DialogTitle>
+          <DialogDescription>Modify driver registry information and license credentials.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="e-dname">Full Name *</Label>
+            <Input id="e-dname" placeholder="Marcus Holloway" value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dlic">License Number *</Label>
+              <Input id="e-dlic" placeholder="CDL-A TX119872" value={form.licenseNumber} onChange={(e) => set("licenseNumber", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dlcat">License Category *</Label>
+              <Select value={form.licenseCategory} onValueChange={(v) => set("licenseCategory", v)}>
+                <SelectTrigger id="e-dlcat"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {LICENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dexpiry">License Expiry *</Label>
+              <Input id="e-dexpiry" type="date" value={form.licenseExpiryDate} onChange={(e) => set("licenseExpiryDate", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dphone">Contact Number *</Label>
+              <Input id="e-dphone" placeholder="+1 (214) 555-0182" value={form.contactNumber} onChange={(e) => set("contactNumber", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateDriver.isPending}>
+              {updateDriver.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function AssignVehicleDialog({
+  driver,
+  open,
+  onClose,
+}: {
+  driver: Driver | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createTrip = useCreateTrip();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: trips = [] } = useTrips();
+
+  const [form, setForm] = React.useState({
+    source: "",
+    destination: "",
+    vehicleId: "",
+    cargoWeight: "",
+    plannedDistance: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setForm({ source: "", destination: "", vehicleId: "", cargoWeight: "", plannedDistance: "" });
+      setError(null);
+    }
+  }, [open]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!driver) return;
+    setError(null);
+    const { source, destination, vehicleId, cargoWeight, plannedDistance } = form;
+    if (!source || !destination || !vehicleId || !cargoWeight || !plannedDistance) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createTrip.mutateAsync({
+        source: source.trim(),
+        destination: destination.trim(),
+        vehicleId,
+        driverId: driver.id,
+        cargoWeight: Number(cargoWeight),
+        plannedDistance: Number(plannedDistance),
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to assign vehicle.");
+    }
+  }
+
+  const assignedVehicleIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.vehicleId)
+  );
+
+  const availableVehicles = vehicles.filter(
+    (v) => (v.status === "available" || v.status === "idle") && !assignedVehicleIds.has(v.id)
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Assign Vehicle to {driver?.name}</DialogTitle>
+          <DialogDescription>Create a trip operation to assign a vehicle to this driver.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-src">Origin *</Label>
+              <Input id="a-src" placeholder="Dallas, TX" value={form.source} onChange={(e) => set("source", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-dst">Destination *</Label>
+              <Input id="a-dst" placeholder="Houston, TX" value={form.destination} onChange={(e) => set("destination", e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="a-veh">Vehicle *</Label>
+            <Select value={form.vehicleId} onValueChange={(v) => set("vehicleId", v)}>
+              <SelectTrigger id="a-veh">
+                <SelectValue placeholder={availableVehicles.length === 0 ? "No available vehicles" : "Select vehicle"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableVehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.plate} — {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-cargo">Cargo Weight (kg) *</Label>
+              <Input id="a-cargo" type="number" min="0" step="0.1" placeholder="20000" value={form.cargoWeight} onChange={(e) => set("cargoWeight", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-dist">Planned Distance (km) *</Label>
+              <Input id="a-dist" type="number" min="0" step="1" placeholder="380" value={form.plannedDistance} onChange={(e) => set("plannedDistance", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createTrip.isPending}>
+              {createTrip.isPending ? "Assigning…" : "Assign Vehicle"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

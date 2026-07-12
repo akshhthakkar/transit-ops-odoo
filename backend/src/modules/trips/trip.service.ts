@@ -87,14 +87,22 @@ export const tripService = {
     return trip;
   },
 
-  async create(data: {
-    source: string;
-    destination: string;
-    vehicleId: string;
-    driverId: string;
-    cargoWeight: number;
-    plannedDistance: number;
-  }) {
+  async create(
+    data: {
+      source: string;
+      destination: string;
+      vehicleId: string;
+      driverId: string;
+      cargoWeight: number;
+      plannedDistance: number;
+    },
+    reqUser: any
+  ) {
+    if (reqUser.role === 'DRIVER') {
+      if (!reqUser.driverId || reqUser.driverId !== data.driverId) {
+        throw Object.assign(new Error('Forbidden: You can only create trips for yourself'), { statusCode: 403 });
+      }
+    }
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: data.vehicleId, deletedAt: null },
     });

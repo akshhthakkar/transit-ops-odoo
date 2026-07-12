@@ -157,6 +157,21 @@ export const fuelExpenseService = {
     },
     reqUser: any
   ) {
+    // RBAC check: Drivers can only log expense for their own trips
+    if (reqUser.role === 'DRIVER') {
+      if (!data.tripId) {
+        throw Object.assign(new Error('Driver must specify a Trip ID to log expense'), { statusCode: 400 });
+      }
+
+      const trip = await prisma.trip.findUnique({
+        where: { id: data.tripId },
+      });
+
+      if (!trip || trip.driverId !== reqUser.driverId) {
+        throw Object.assign(new Error('Forbidden: You can only log expense for your own trips'), { statusCode: 403 });
+      }
+    }
+
     // Validate vehicle
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: data.vehicleId, deletedAt: null },

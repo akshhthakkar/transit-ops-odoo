@@ -16,7 +16,38 @@ const app = express();
 
 // ── Global middleware ────────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL ?? '*' }));
+
+const allowedOrigins = new Set<string>(
+  (process.env.FRONTEND_URL ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow server-to-server calls (no origin header)
+      if (!origin) return callback(null, true);
+
+      // Exact match against the allow-list
+      if (allowedOrigins.has(origin)) return callback(null, true);
+
+      // Allow any Vercel preview deployment for this project
+      if (/^https:\/\/transit-ops-odoo[a-z0-9-]*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost for local dev
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`CORS: origin '${origin}' is not allowed`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // ── Health check (no auth required) ─────────────────────────────────────────

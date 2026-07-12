@@ -3,7 +3,8 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useNav, type NavKey } from "@/store/nav";
-import { navGroups } from "./nav-config";
+import { navGroups, isKeyAllowedForRole } from "./nav-config";
+import { useAuthStore } from "@/store/auth";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { kpis } from "@/lib/transit-data";
 
@@ -19,6 +20,8 @@ function BrandMark() {
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { active, set } = useNav();
+  const { user } = useAuthStore();
+  const role = user?.role ?? "";
 
   const { data: vehicles = [] } = useVehicles();
   const { data: drivers = [] } = useDrivers();
@@ -32,9 +35,16 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
     maintenance: maintenance.filter((m) => m.status !== "completed").length,
   };
 
+  const filteredGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => isKeyAllowedForRole(item.key, role)),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <nav className="flex flex-col gap-5 px-3 py-4">
-      {navGroups.map((group) => (
+      {filteredGroups.map((group) => (
         <div key={group.label} className="space-y-1">
           <p className="px-2.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
             {group.label}

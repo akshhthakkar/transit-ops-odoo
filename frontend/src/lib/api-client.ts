@@ -28,7 +28,7 @@ apiClient.interceptors.response.use(
       if (typeof window !== "undefined") {
         localStorage.removeItem("transit_token");
         localStorage.removeItem("transit_user");
-        window.location.href = "/";
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

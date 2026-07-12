@@ -37,7 +37,7 @@ export async function getById(req: Request, res: Response): Promise<void> {
 
 export async function create(req: Request, res: Response): Promise<void> {
   const body = createTripSchema.parse(req.body);
-  const trip = await tripService.create(body);
+  const trip = await tripService.create(body, req.user!);
   res.status(201).json(trip);
 }
 

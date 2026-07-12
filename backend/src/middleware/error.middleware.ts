@@ -23,9 +23,13 @@ export function errorMiddleware(
   }
 
   const status  = err.statusCode ?? 500;
-  const message = err.message    ?? 'Internal Server Error';
+  let message = err.message    ?? 'Internal Server Error';
 
-  console.error(`[ERROR] ${status} — ${message}`, err.stack);
+  if (status === 500 && process.env.NODE_ENV === 'production') {
+    message = 'Internal Server Error';
+  }
+
+  console.error(`[ERROR] ${status} — ${err.message}`, err.stack);
 
   res.status(status).json({ message });
 }
