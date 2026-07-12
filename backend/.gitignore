@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+
+# Logs
+*.log
+logs/
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma — keep migrations, ignore local dev db if using SQLite
+*.db
+*.db-journal
+
+# OS
+.DS_Store
+Thumbs.db
