@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import './LandingNavbar.css';
-import rapidLogo from '../../assets/new-rapid-logo.png';
+import shiftLogo from '../../assets/shift-logo.png';
 
 const LINKS = [
   { label: 'Features', href: '#features' },
@@ -52,7 +52,7 @@ export function LandingNavbar() {
       <div className="navbar">
 
         <Link to="/" className="navbar-logo" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={rapidLogo} alt="Swift" style={{ height: '30px', objectFit: 'contain' }} />
+          <img src={shiftLogo} alt="Shift" style={{ height: '30px', objectFit: 'contain' }} />
         </Link>
 
         <ul className="navbar-links">

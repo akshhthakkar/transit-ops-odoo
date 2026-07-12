@@ -12,6 +12,7 @@ import { VehicleDetailPage } from '../features/vehicles/components/VehicleDetail
 import { DriversPage }     from '../features/drivers/components/DriversPage';
 import { DriverDetailPage } from '../features/drivers/components/DriverDetailPage';
 import { TripsPage }       from '../features/trips/components/TripsPage';
+import { TripDetailPage }  from '../features/trips/components/TripDetailPage';
 import { MaintenancePage } from '../features/maintenance/components/MaintenancePage';
 import { FuelExpensePage } from '../features/fuel-expense/components/FuelExpensePage';
 import { ReportsPage }     from '../features/reports/components/ReportsPage';
@@ -34,6 +35,7 @@ export function AppRoutes() {
           <Route path="/drivers"     element={<DriversPage />} />
           <Route path="/drivers/:id" element={<DriverDetailPage />} />
           <Route path="/trips"       element={<TripsPage />} />
+          <Route path="/trips/:id"    element={<TripDetailPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/fuel"        element={<FuelExpensePage />} />
           <Route path="/reports"     element={<ReportsPage />} />

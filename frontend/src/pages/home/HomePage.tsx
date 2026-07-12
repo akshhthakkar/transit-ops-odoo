@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LandingNavbar } from '../../components/layout/LandingNavbar';
-import dbHero from '../../assets/dbHero.png';
+import dbHero from '../../assets/DashBoard1st.png';
 import { Features } from '../../components/layout/Features';
 import HowItWorks from '../../components/layout/HowItWorks';
 import FAQ from '../../components/layout/FAQ';
