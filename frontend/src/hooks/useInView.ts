@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from "react";
 
 export const useInView = (options: IntersectionObserverInit = {}) => {
   const [inView, setInView] = useState(false);
