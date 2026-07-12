@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           <footer className="border-t border-border/60 px-4 py-4 sm:px-6 lg:px-8">
             <div className="mx-auto flex w-full max-w-[1440px] flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
-              <p>© 2025 TransitOps — Smart Transport Operations Platform</p>
+              <p>© 2025 Swift — Smart Transport Operations Platform</p>
               <div className="flex items-center gap-4">
                 <span className="hidden sm:inline">v4.2.1</span>
                 <span className="flex items-center gap-1.5">

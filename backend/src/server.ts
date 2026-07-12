@@ -8,7 +8,7 @@ async function main() {
   console.log('✅ Database connected');
 
   app.listen(env.PORT, () => {
-    console.log(`🚀 TransitOps API running on http://localhost:${env.PORT}`);
+    console.log(`🚀 Swift API running on http://localhost:${env.PORT}`);
     console.log(`   Health: http://localhost:${env.PORT}/health`);
   });
 }

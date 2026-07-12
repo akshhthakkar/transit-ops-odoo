@@ -80,7 +80,7 @@ export function LoginView() {
                   id="auth-email"
                   type="email"
                   className="auth-input"
-                  placeholder="fleet@transitops.com"
+                  placeholder="fleet@swift.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
@@ -128,9 +128,9 @@ export function LoginView() {
               color: "#64748B",
             }}>
               <p style={{ margin: "0 0 6px 0", fontWeight: 600, color: "#0F172A" }}>Demo Credentials</p>
-              <p style={{ margin: "2px 0" }}>fleet@transitops.com / password123</p>
-              <p style={{ margin: "2px 0" }}>safety@transitops.com / password123</p>
-              <p style={{ margin: "2px 0" }}>finance@transitops.com / password123</p>
+              <p style={{ margin: "2px 0" }}>fleet@swift.com / password123</p>
+              <p style={{ margin: "2px 0" }}>safety@swift.com / password123</p>
+              <p style={{ margin: "2px 0" }}>finance@swift.com / password123</p>
             </div>
 
             <div className="grid-h-line" style={{ bottom: 0 }} />

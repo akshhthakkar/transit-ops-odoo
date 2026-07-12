@@ -50,11 +50,11 @@ const statusOptions = [
 const categoryColors: Record<string, string> = {
   Fuel: "#111827",
   Maintenance: "#d97706",
-  Tolls: "#0d9488",
+  Tolls: "#FF540E",
   "Driver Pay": "#6b7280",
   Insurance: "#9ca3af",
   Parts: "#d97706",
-  Permits: "#0d9488",
+  Permits: "#FF540E",
   Other: "#9ca3af",
 };
 

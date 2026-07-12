@@ -5,23 +5,12 @@ import { cn } from "@/lib/utils";
 import { useNav, type NavKey } from "@/store/nav";
 import { navGroups } from "./nav-config";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Package } from "lucide-react";
 import { kpis } from "@/lib/transit-data";
 
 function BrandMark() {
   return (
-    <div className="flex items-center gap-2.5 px-1">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-foreground text-background">
-        <Package className="size-4" strokeWidth={2.25} />
-      </div>
-      <div className="leading-tight">
-        <p className="text-sm font-semibold tracking-tight text-foreground">
-          TransitOps
-        </p>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          Transport Operations
-        </p>
-      </div>
+    <div className="flex items-center px-1">
+      <img src="/assets/shift-logo.png" alt="Shift" style={{ height: "26px", objectFit: "contain" }} />
     </div>
   );
 }

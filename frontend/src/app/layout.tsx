@@ -18,17 +18,17 @@ const interMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TransitOps — Smart Transport Operations",
+  title: "Swift — Smart Transport Operations",
   description:
-    "TransitOps is a smart transport operations platform for managing fleets, drivers, trips, maintenance, fuel, expenses, and analytics.",
+    "Swift is a smart transport operations platform for managing fleets, drivers, trips, maintenance, fuel, expenses, and analytics.",
   keywords: [
-    "TransitOps",
+    "Swift",
     "fleet management",
     "transport operations",
     "logistics",
     "ERP",
   ],
-  authors: [{ name: "TransitOps" }],
+  authors: [{ name: "Swift" }],
 };
 
 export default function RootLayout({

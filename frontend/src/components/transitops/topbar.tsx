@@ -177,7 +177,7 @@ export function Topbar() {
               <DropdownMenuLabel className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium">Alex Kowalski</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  alex@transitops.io
+                  alex@swift.io
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

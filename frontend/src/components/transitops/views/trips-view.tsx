@@ -74,7 +74,7 @@ const statusOptions = [
 
 function Progress({ value, status }: { value: number; status: string }) {
   const color =
-    status === "delayed" ? "#dc2626" : status === "completed" ? "#16a34a" : "#0d9488";
+    status === "delayed" ? "#dc2626" : status === "completed" ? "#16a34a" : "#FF540E";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-20 overflow-hidden rounded-full bg-foreground/[0.07]">

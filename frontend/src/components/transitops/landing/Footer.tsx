@@ -84,11 +84,11 @@ export function Footer() {
       </div>
 
       <div className="ft-watermark ft-watermark-reveal" style={{ "--delay": "450ms" } as React.CSSProperties} aria-hidden="true">
-        TRANSITOPS
+        SWIFT
       </div>
 
       <p className="ft-copy ft-reveal" style={{ "--delay": "550ms" } as React.CSSProperties}>
-        © {new Date().getFullYear()} TransitOps. All rights reserved.
+        © {new Date().getFullYear()} Swift. All rights reserved.
       </p>
     </footer>
   );

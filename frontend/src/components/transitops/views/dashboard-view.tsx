@@ -85,7 +85,7 @@ export function DashboardView() {
     });
     return [
       { name: "Active", value: counts.active ?? 0, color: "#16a34a" },
-      { name: "Available", value: counts.available ?? 0, color: "#0d9488" },
+      { name: "Available", value: counts.available ?? 0, color: "#FF540E" },
       { name: "Maintenance", value: counts.maintenance ?? 0, color: "#d97706" },
       { name: "Idle", value: counts.idle ?? 0, color: "#9ca3af" },
       { name: "Offline", value: counts.offline ?? 0, color: "#dc2626" },

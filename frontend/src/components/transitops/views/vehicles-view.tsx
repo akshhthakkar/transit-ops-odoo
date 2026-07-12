@@ -69,7 +69,7 @@ const VEHICLE_TYPES = ["Tractor", "Box Truck", "Reefer", "Flatbed", "Sprinter Va
 
 function MiniBar({ value, tone = "brand" }: { value: number; tone?: string }) {
   const color =
-    value < 25 ? "#dc2626" : value < 50 ? "#d97706" : tone === "brand" ? "#0d9488" : "#111827";
+    value < 25 ? "#dc2626" : value < 50 ? "#d97706" : tone === "brand" ? "#FF540E" : "#111827";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-foreground/[0.07]">

@@ -11,24 +11,24 @@ async function main() {
   // ── Users (one per role) ──────────────────────────────────────────────────
   const [fleetMgr, driverUser, safetyOfficer, financialAnalyst] = await Promise.all([
     prisma.user.upsert({
-      where: { email: 'fleet@transitops.com' },
+      where: { email: 'fleet@swift.com' },
       update: {},
-      create: { email: 'fleet@transitops.com', passwordHash, name: 'Fleet Manager', role: 'FLEET_MANAGER' },
+      create: { email: 'fleet@swift.com', passwordHash, name: 'Fleet Manager', role: 'FLEET_MANAGER' },
     }),
     prisma.user.upsert({
-      where: { email: 'driver@transitops.com' },
+      where: { email: 'driver@swift.com' },
       update: {},
-      create: { email: 'driver@transitops.com', passwordHash, name: 'Alex Driver', role: 'DRIVER' },
+      create: { email: 'driver@swift.com', passwordHash, name: 'Alex Driver', role: 'DRIVER' },
     }),
     prisma.user.upsert({
-      where: { email: 'safety@transitops.com' },
+      where: { email: 'safety@swift.com' },
       update: {},
-      create: { email: 'safety@transitops.com', passwordHash, name: 'Safety Officer', role: 'SAFETY_OFFICER' },
+      create: { email: 'safety@swift.com', passwordHash, name: 'Safety Officer', role: 'SAFETY_OFFICER' },
     }),
     prisma.user.upsert({
-      where: { email: 'finance@transitops.com' },
+      where: { email: 'finance@swift.com' },
       update: {},
-      create: { email: 'finance@transitops.com', passwordHash, name: 'Financial Analyst', role: 'FINANCIAL_ANALYST' },
+      create: { email: 'finance@swift.com', passwordHash, name: 'Financial Analyst', role: 'FINANCIAL_ANALYST' },
     }),
   ]);
 
@@ -242,10 +242,10 @@ async function main() {
 
   console.log('\n🎉 Seed complete!');
   console.log('\nLogin credentials (all use password: password123):');
-  console.log('  fleet@transitops.com     → FLEET_MANAGER');
-  console.log('  driver@transitops.com    → DRIVER (linked to Alex Johnson)');
-  console.log('  safety@transitops.com    → SAFETY_OFFICER');
-  console.log('  finance@transitops.com   → FINANCIAL_ANALYST');
+  console.log('  fleet@swift.com     → FLEET_MANAGER');
+  console.log('  driver@swift.com    → DRIVER (linked to Alex Johnson)');
+  console.log('  safety@swift.com    → SAFETY_OFFICER');
+  console.log('  finance@swift.com   → FINANCIAL_ANALYST');
 }
 
 main()

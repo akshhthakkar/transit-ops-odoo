@@ -9,7 +9,7 @@ async function runE2E() {
     const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'fleet@transitops.com', password: 'password123' })
+      body: JSON.stringify({ email: 'fleet@swift.com', password: 'password123' })
     });
     const data = await res.json();
     fleetToken = data.token;
@@ -18,7 +18,7 @@ async function runE2E() {
     const res2 = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'driver@transitops.com', password: 'password123' })
+      body: JSON.stringify({ email: 'driver@swift.com', password: 'password123' })
     });
     const data2 = await res2.json();
     driverToken = data2.token;

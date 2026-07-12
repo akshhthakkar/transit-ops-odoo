@@ -1,5 +1,5 @@
 /**
- * TransitOps E2E Test Suite
+ * Swift E2E Test Suite
  * Covers Auth, RBAC, Vehicle, Driver, Trip Lifecycle, Maintenance, Fuel/Expense, Dashboard, and Reports.
  * Run directly with: node tests/api.test.js
  */
@@ -56,7 +56,7 @@ async function apiRequest(method, path, body = null, token = null) {
 }
 
 async function runTests() {
-  console.log('🧪 Starting TransitOps Automated Test Suite...\n');
+  console.log('🧪 Starting Swift Automated Test Suite...\n');
 
   // Boot server on a dynamic port
   server = http.createServer(app);
@@ -76,10 +76,10 @@ async function runTests() {
     // 1.1 Login succeeds for each role
     const roles = ['FLEET_MANAGER', 'DRIVER', 'SAFETY_OFFICER', 'FINANCIAL_ANALYST'];
     const emails = {
-      FLEET_MANAGER: 'fleet@transitops.com',
-      DRIVER: 'driver@transitops.com',
-      SAFETY_OFFICER: 'safety@transitops.com',
-      FINANCIAL_ANALYST: 'finance@transitops.com'
+      FLEET_MANAGER: 'fleet@swift.com',
+      DRIVER: 'driver@swift.com',
+      SAFETY_OFFICER: 'safety@swift.com',
+      FINANCIAL_ANALYST: 'finance@swift.com'
     };
 
     for (const role of roles) {
@@ -97,7 +97,7 @@ async function runTests() {
 
     // 1.2 Login fails with wrong password
     const loginFail = await apiRequest('POST', '/auth/login', {
-      email: 'fleet@transitops.com',
+      email: 'fleet@swift.com',
       password: 'wrongpassword'
     });
     assert.strictEqual(loginFail.status, 401, 'Login with wrong password should fail with 401');

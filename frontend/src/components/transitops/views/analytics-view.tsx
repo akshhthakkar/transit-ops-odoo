@@ -33,7 +33,7 @@ import {
 
 const typeColors: Record<string, string> = {
   Tractor: "#111827",
-  "Box Truck": "#0d9488",
+  "Box Truck": "#FF540E",
   Reefer: "#d97706",
   Flatbed: "#6b7280",
   "Sprinter Van": "#9ca3af",
@@ -128,7 +128,7 @@ export function AnalyticsView() {
           <MinimalAreaChart
             data={fleetUtilizationSeries}
             xKey="label"
-            series={[{ key: "value", name: "Utilization", color: "#0d9488" }]}
+            series={[{ key: "value", name: "Utilization", color: "#FF540E" }]}
             height={260}
             valueFormatter={(v) => `${v}%`}
           />
@@ -187,7 +187,7 @@ export function AnalyticsView() {
           <MinimalBarChart
             data={tripsWeeklySeries}
             xKey="label"
-            bars={[{ key: "value", name: "Trips", color: "#0d9488" }]}
+            bars={[{ key: "value", name: "Trips", color: "#FF540E" }]}
             height={260}
             valueFormatter={(v) => `${v}`}
           />
