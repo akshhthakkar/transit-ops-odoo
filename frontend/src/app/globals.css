@@ -206,4 +206,23 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }
+
+  /* Custom styled close button for radix Dialogs & Sheets */
+  .absolute.right-4.top-4 {
+    border: 1px solid #FF540E !important;
+    color: #FF540E !important;
+    border-radius: 6px !important;
+    background-color: #FFFFFF !important;
+    width: 28px !important;
+    height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 1 !important;
+    transition: all 0.15s ease-in-out !important;
+  }
+  .absolute.right-4.top-4:hover {
+    background-color: rgba(255, 84, 14, 0.08) !important;
+    transform: scale(1.05) !important;
+  }
 }
