@@ -14,6 +14,7 @@ import {
   Eye,
   XCircle,
   Send,
+  CircleCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ import {
   useCreateTrip,
   useCancelTrip,
   useDispatchTrip,
+  useCompleteTrip,
 } from "@/hooks/queries";
 
 const statusOptions = [
@@ -222,9 +224,11 @@ export function TripsView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Trip | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [completeOpen, setCompleteOpen] = React.useState<Trip | null>(null);
   const { data: trips = [], isLoading } = useTrips();
   const cancelTrip = useCancelTrip();
   const dispatchTrip = useDispatchTrip();
+  const completeTrip = useCompleteTrip();
 
   const filtered = React.useMemo(
     () => (filter === "all" ? trips : trips.filter((t) => t.status === filter)),
@@ -395,6 +399,13 @@ export function TripsView() {
                     <Send className="size-4" /> Dispatch trip
                   </DropdownMenuItem>
                 )}
+                {t.status === "in_transit" && (
+                  <DropdownMenuItem
+                    onClick={() => setCompleteOpen(t)}
+                  >
+                    <CircleCheck className="size-4" /> Complete trip
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem>
                   <Pencil className="size-4" /> Edit trip
                 </DropdownMenuItem>
@@ -416,6 +427,7 @@ export function TripsView() {
 
       <TripDetailSheet trip={selected} onClose={() => setSelected(null)} />
       <NewTripDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <CompleteTripDialog open={!!completeOpen} trip={completeOpen} onClose={() => setCompleteOpen(null)} />
     </div>
   );
 }
@@ -430,12 +442,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
+      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-medium text-foreground">{children}</span>
+      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
     </div>
   );
 }
@@ -451,74 +463,235 @@ function TripDetailSheet({
   const driver = trip ? driverById(trip.driverId) : null;
   return (
     <Sheet open={!!trip} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
         {trip && (
-          <>
-            <SheetHeader className="space-y-3">
-              <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/70">
-                <RouteIcon className="size-5" />
+          <div className="flex flex-col min-h-full relative pb-10">
+            {/* Retro Vertical Grid Lines */}
+            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+
+            {/* Row 1: Header */}
+            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-7 items-center justify-center rounded border border-border bg-white text-foreground/70">
+                    <RouteIcon className="size-4 text-brand" />
+                  </div>
+                  <h3 className="text-xl font-extrabold font-mono tracking-tight text-slate-900">
+                    {trip.id.slice(0, 8).toUpperCase()}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 font-semibold font-mono">
+                  {trip.cargo} · {trip.weightLb.toLocaleString()} kg
+                </p>
               </div>
-              <div>
-                <SheetTitle className="text-lg font-mono">{trip.id.slice(0, 8).toUpperCase()}</SheetTitle>
-                <SheetDescription>{trip.cargo} · {trip.weightLb.toLocaleString()} kg</SheetDescription>
-              </div>
-              <div>
+              <div className="mr-6">
                 <DomainStatusBadge status={trip.status} />
               </div>
-            </SheetHeader>
+            </div>
 
-            <div className="mt-5 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Origin</p>
-                  <p className="text-sm font-medium text-foreground">{trip.origin}</p>
+            {/* Row 2: Route Progress Card */}
+            <div className="relative px-[45px] py-6">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-5 relative shadow-sm">
+                {/* Corner intersection plus symbols for Card */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Origin</p>
+                    <p className="text-base font-extrabold text-slate-800 font-display">{trip.origin}</p>
+                  </div>
+                  <ArrowRight className="mx-3 size-5 shrink-0 text-brand" />
+                  <div className="min-w-0 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Destination</p>
+                    <p className="text-base font-extrabold text-slate-800 font-display">{trip.destination}</p>
+                  </div>
                 </div>
-                <ArrowRight className="mx-3 size-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p>
-                  <p className="text-sm font-medium text-foreground">{trip.destination}</p>
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium text-foreground tnum">{trip.progress}%</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.07]">
-                  <div
-                    className="h-full rounded-full bg-brand"
-                    style={{ width: `${trip.progress}%` }}
-                  />
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <div className="mb-1.5 flex items-center justify-between text-xs font-bold font-mono">
+                    <span className="text-slate-400">PROGRESS</span>
+                    <span className="text-brand tnum">{trip.progress}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 border border-slate-200/50">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-500"
+                      style={{ width: `${trip.progress}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 divide-y divide-border/60">
-              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {/* Row 3: Detail Attributes Grid */}
+            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
                 Trip Details
               </h4>
-              <DetailRow label="Vehicle" icon={<Package className="size-3.5" />}>
-                {vehicle?.plate ?? trip.vehicleId?.slice(0, 8)} · {vehicle?.model}
-              </DetailRow>
-              <DetailRow label="Driver" icon={<MapPin className="size-3.5" />}>
-                {driver?.name ?? trip.driverId?.slice(0, 8)}
-              </DetailRow>
-              <DetailRow label="Departure" icon={<Clock className="size-3.5" />}>
-                {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
-              </DetailRow>
-              <DetailRow label="ETA" icon={<Clock className="size-3.5" />}>
-                {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
-              </DetailRow>
-              <DetailRow label="Distance" icon={<MapPin className="size-3.5" />}>
-                {trip.distance} km
-              </DetailRow>
-              <DetailRow label="Revenue" icon={<Package className="size-3.5" />}>
-                {formatCurrency(trip.revenue)}
-              </DetailRow>
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
+                {/* Corner decoration plus indicators for details card */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+
+                <DetailRow label="Vehicle" icon={<Package className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-800 font-bold">{vehicle?.plate ?? trip.vehicleId?.slice(0, 8)}</span>
+                  {vehicle && <span className="text-slate-400 text-xs ml-1 font-mono">({vehicle.model})</span>}
+                </DetailRow>
+                <DetailRow label="Driver" icon={<MapPin className="size-3.5 text-slate-400" />}>
+                  <span className="text-slate-800 font-bold font-display">{driver?.name ?? trip.driverId?.slice(0, 8)}</span>
+                </DetailRow>
+                <DetailRow label="Departure" icon={<Clock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-xs text-slate-600">
+                    {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
+                  </span>
+                </DetailRow>
+                <DetailRow label="ETA" icon={<Clock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-xs text-slate-600">
+                    {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
+                  </span>
+                </DetailRow>
+                <DetailRow label="Distance" icon={<MapPin className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono font-bold text-slate-800">{trip.distance} km</span>
+                </DetailRow>
+                <DetailRow label="Revenue" icon={<Package className="size-3.5 text-slate-400" />}>
+                  <span className="font-bold text-brand">{formatCurrency(trip.revenue)}</span>
+                </DetailRow>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function CompleteTripDialog({
+  open,
+  trip,
+  onClose,
+}: {
+  open: boolean;
+  trip: Trip | null;
+  onClose: () => void;
+}) {
+  const completeTrip = useCompleteTrip();
+  const [form, setForm] = React.useState({
+    actualDistance: "",
+    fuelConsumed: "",
+    revenue: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Reset form when trip changes
+  React.useEffect(() => {
+    if (trip) {
+      setForm({
+        actualDistance: String(trip.distance || ""),
+        fuelConsumed: "",
+        revenue: String(trip.revenue || ""),
+      });
+    }
+  }, [trip]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!trip) return;
+
+    const { actualDistance, fuelConsumed, revenue } = form;
+    if (!actualDistance || !fuelConsumed || !revenue) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      await completeTrip.mutateAsync({
+        id: trip.id,
+        actualDistance: Number(actualDistance),
+        fuelConsumed: Number(fuelConsumed),
+        revenue: Number(revenue),
+      });
+      setForm({ actualDistance: "", fuelConsumed: "", revenue: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to complete trip.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Complete Trip</DialogTitle>
+          <DialogDescription>
+            Enter the final actual metrics for trip {trip?.id.slice(0, 8).toUpperCase()} to close it out.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="tactualdist">Actual Distance (km) *</Label>
+            <Input
+              id="tactualdist"
+              type="number"
+              min="0"
+              step="0.1"
+              placeholder="e.g. 120"
+              value={form.actualDistance}
+              onChange={(e) => set("actualDistance", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tfuel">Fuel Consumed (Liters) *</Label>
+            <Input
+              id="tfuel"
+              type="number"
+              min="0"
+              step="0.1"
+              placeholder="e.g. 25.5"
+              value={form.fuelConsumed}
+              onChange={(e) => set("fuelConsumed", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="trev">Revenue ($) *</Label>
+            <Input
+              id="trev"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="e.g. 850.00"
+              value={form.revenue}
+              onChange={(e) => set("revenue", e.target.value)}
+            />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={completeTrip.isPending}>
+              {completeTrip.isPending ? "Completing…" : "Complete Trip"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

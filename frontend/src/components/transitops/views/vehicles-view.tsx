@@ -368,12 +368,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
+      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-medium text-foreground">{children}</span>
+      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
     </div>
   );
 }
@@ -388,84 +388,122 @@ function VehicleDetailSheet({
   const driver = vehicle ? driverById(vehicle.driverId) : null;
   return (
     <Sheet open={!!vehicle} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
         {vehicle && (
-          <>
-            <SheetHeader className="space-y-3">
-              <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/70">
-                <Truck className="size-5" />
+          <div className="flex flex-col min-h-full relative pb-10">
+            {/* Retro Vertical Grid Lines */}
+            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+
+            {/* Row 1: Header */}
+            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-7 items-center justify-center rounded border border-border bg-white text-foreground/70">
+                    <Truck className="size-4 text-brand" />
+                  </div>
+                  <h3 className="text-xl font-extrabold font-mono tracking-tight text-slate-900">
+                    {vehicle.plate}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 font-semibold font-mono">
+                  {vehicle.model} · {vehicle.type}
+                </p>
               </div>
-              <div>
-                <SheetTitle className="text-lg">{vehicle.plate}</SheetTitle>
-                <SheetDescription>{vehicle.model} · {vehicle.type}</SheetDescription>
-              </div>
-              <div>
+              <div className="mr-6">
                 <DomainStatusBadge status={vehicle.status} />
               </div>
-            </SheetHeader>
-
-            <div className="mt-6 space-y-1">
-              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Assignment
-              </h4>
-              {driver ? (
-                <div className="rounded-lg border border-border p-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground/70">
-                      {driver.initials}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{driver.name}</p>
-                      <p className="text-xs text-muted-foreground">{driver.license}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Phone className="size-3" /> {driver.phone}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                  No driver assigned
-                </div>
-              )}
             </div>
 
-            <div className="mt-6 divide-y divide-border/60">
-              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {/* Row 2: Assignment Card */}
+            <div className="relative px-[45px] py-6">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="space-y-2">
+                <h4 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Assignment
+                </h4>
+                {driver ? (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 relative shadow-sm">
+                    {/* Plus corner markers for card */}
+                    <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                    <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                    <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                    <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white border-2 border-slate-200 font-mono shadow-sm">
+                        {driver.initials}
+                      </div>
+                      <div>
+                        <p className="text-sm font-extrabold text-slate-800 font-display">{driver.name}</p>
+                        <p className="text-xs text-slate-400 font-medium font-mono">{driver.license}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 border-t border-slate-100 pt-2.5 flex items-center gap-2 text-xs font-bold text-slate-400 font-mono">
+                      <Phone className="size-3.5 text-slate-400" /> {driver.phone}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 py-6 text-center text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    No driver assigned
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Row 3: Detail Attributes Grid */}
+            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
                 Vehicle Information
               </h4>
-              <DetailRow label="VIN" icon={<Truck className="size-3.5" />}>
-                {vehicle.vin}
-              </DetailRow>
-              <DetailRow label="Location" icon={<MapPin className="size-3.5" />}>
-                <span className="max-w-[200px] truncate">{vehicle.location}</span>
-              </DetailRow>
-              <DetailRow label="Odometer" icon={<Gauge className="size-3.5" />}>
-                {formatNumber(vehicle.odometer)} mi
-              </DetailRow>
-              <DetailRow label="Fuel level" icon={<Fuel className="size-3.5" />}>
-                {vehicle.fuelPct}%
-              </DetailRow>
-              <DetailRow label="Utilization" icon={<Gauge className="size-3.5" />}>
-                {vehicle.utilization}%
-              </DetailRow>
-              <DetailRow label="Last service" icon={<Wrench className="size-3.5" />}>
-                {vehicle.lastService}
-              </DetailRow>
-              <DetailRow label="Next service" icon={<CalendarClock className="size-3.5" />}>
-                {vehicle.nextService}
-              </DetailRow>
-            </div>
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
+                {/* Plus corner decoration for details grid */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
 
-            <div className="mt-6 flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                <Pencil className="size-4" /> Edit
-              </Button>
-              <Button size="sm" className="flex-1">
-                <Wrench className="size-4" /> Schedule Service
-              </Button>
+                <DetailRow label="VIN" icon={<Truck className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-800 font-bold">{vehicle.vin}</span>
+                </DetailRow>
+                <DetailRow label="Location" icon={<MapPin className="size-3.5 text-slate-400" />}>
+                  <span className="text-slate-800 font-bold font-display max-w-[200px] truncate block">{vehicle.location}</span>
+                </DetailRow>
+                <DetailRow label="Odometer" icon={<Gauge className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-800">{formatNumber(vehicle.odometer)} mi</span>
+                </DetailRow>
+                <DetailRow label="Fuel level" icon={<Fuel className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono font-bold text-slate-800">{vehicle.fuelPct}%</span>
+                </DetailRow>
+                <DetailRow label="Utilization" icon={<Gauge className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono font-bold text-slate-800">{vehicle.utilization}%</span>
+                </DetailRow>
+                <DetailRow label="Last service" icon={<Wrench className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-xs text-slate-600">{vehicle.lastService}</span>
+                </DetailRow>
+                <DetailRow label="Next service" icon={<CalendarClock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-xs text-slate-600">{vehicle.nextService}</span>
+                </DetailRow>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex gap-3 mr-6">
+                <Button variant="outline" size="sm" className="flex-1 font-mono font-bold">
+                  <Pencil className="size-4 mr-1.5" /> Edit
+                </Button>
+                <Button size="sm" className="flex-1 font-mono font-bold bg-brand text-white hover:bg-brand/90">
+                  <Wrench className="size-4 mr-1.5" /> Schedule Service
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>

@@ -113,6 +113,34 @@ export function useDispatchTrip() {
   });
 }
 
+export function useCompleteTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      actualDistance,
+      fuelConsumed,
+      revenue,
+    }: {
+      id: string;
+      actualDistance: number;
+      fuelConsumed: number;
+      revenue: number;
+    }) =>
+      apiClient.post(`/trips/${id}/complete`, {
+        actualDistance,
+        fuelConsumed,
+        revenue,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 // ─── Maintenance ─────────────────────────────────────────────────────────────
 
 export function useMaintenance() {

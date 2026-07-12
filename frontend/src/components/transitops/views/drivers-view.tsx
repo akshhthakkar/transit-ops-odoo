@@ -346,12 +346,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
+      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-medium text-foreground">{children}</span>
+      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
     </div>
   );
 }
@@ -366,84 +366,125 @@ function DriverDetailSheet({
   const vehicle = driver ? vehicleById(driver.assignedVehicleId) : null;
   return (
     <Sheet open={!!driver} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
         {driver && (
-          <>
-            <SheetHeader className="space-y-3">
-              <div className="flex size-11 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
-                {driver.initials}
-              </div>
-              <div>
-                <SheetTitle className="text-lg">{driver.name}</SheetTitle>
-                <SheetDescription>{driver.license}</SheetDescription>
-              </div>
-              <div>
-                <DomainStatusBadge status={driver.status} />
-              </div>
-            </SheetHeader>
+          <div className="flex flex-col min-h-full relative pb-10">
+            {/* Retro Vertical Grid Lines */}
+            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
 
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div className="rounded-lg border border-border p-3">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours</p>
-                <p className="mt-1 text-lg font-semibold text-foreground tnum">{driver.hoursThisWeek}h</p>
+            {/* Row 1: Header */}
+            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white border-2 border-slate-200 font-mono shadow-sm">
+                  {driver.initials}
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight font-display">{driver.name}</h3>
+                  <p className="text-xs text-slate-500 font-bold font-mono">{driver.license}</p>
+                </div>
               </div>
-              <div className="rounded-lg border border-border p-3">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Trips</p>
-                <p className="mt-1 text-lg font-semibold text-foreground tnum">{driver.tripsCompleted}</p>
-              </div>
-              <div className="rounded-lg border border-border p-3">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</p>
-                <p className="mt-1 flex items-center gap-1 text-lg font-semibold text-foreground tnum">
-                  {driver.rating.toFixed(1)}
-                  <Star className="size-3.5 fill-warning text-warning" />
-                </p>
+              <div className="mr-6">
+                <DomainStatusBadge status={driver.status} />
               </div>
             </div>
 
+            {/* Row 2: KPI Grid Cards */}
+            <div className="relative px-[45px] py-6">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Hours</p>
+                  <p className="mt-1 text-lg font-extrabold text-slate-800 font-mono tnum">{driver.hoursThisWeek}h</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Trips</p>
+                  <p className="mt-1 text-lg font-extrabold text-slate-800 font-mono tnum">{driver.tripsCompleted}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3.5 relative shadow-sm text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Rating</p>
+                  <p className="mt-1 flex items-center justify-center gap-1 text-lg font-extrabold text-slate-800 font-mono tnum">
+                    {driver.rating.toFixed(1)}
+                    <Star className="size-3.5 fill-warning text-warning shrink-0" />
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 3: Assigned Vehicle (Optional Card) */}
             {vehicle && (
-              <div className="mt-4 rounded-lg border border-border p-3">
-                <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Assigned Vehicle
-                </p>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-8 items-center justify-center rounded-md bg-muted/40 text-muted-foreground">
-                    <Truck className="size-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{vehicle.plate}</p>
-                    <p className="text-xs text-muted-foreground">{vehicle.model}</p>
+              <div className="relative px-[45px] py-6">
+                <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+                <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+                <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4 relative shadow-sm">
+                  {/* Plus corner markers for Assigned Card */}
+                  <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                  <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                  <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                  <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+
+                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Assigned Vehicle
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded border border-slate-200 bg-slate-50 text-slate-500">
+                      <Truck className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-extrabold text-slate-800 font-mono">{vehicle.plate}</p>
+                      <p className="text-xs text-slate-400 font-medium">{vehicle.model}</p>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="mt-4 divide-y divide-border/60">
-              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {/* Row 4: Contact & Records Grid */}
+            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
                 Contact & Records
               </h4>
-              <DetailRow label="Phone" icon={<Phone className="size-3.5" />}>
-                {driver.phone}
-              </DetailRow>
-              <DetailRow label="Home base" icon={<MapPin className="size-3.5" />}>
-                {driver.homeBase}
-              </DetailRow>
-              <DetailRow label="License expiry" icon={<CalendarClock className="size-3.5" />}>
-                {driver.licenseExpiry}
-              </DetailRow>
-              <DetailRow label="Weekly hours" icon={<Clock className="size-3.5" />}>
-                {driver.hoursThisWeek}h / 60h
-              </DetailRow>
-            </div>
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
+                {/* Plus corner decoration for details grid */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
 
-            <div className="mt-6 flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                <Pencil className="size-4" /> Edit
-              </Button>
-              <Button size="sm" className="flex-1">
-                <Truck className="size-4" /> Assign Vehicle
-              </Button>
+                <DetailRow label="Phone" icon={<Phone className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-800">{driver.phone}</span>
+                </DetailRow>
+                <DetailRow label="Home base" icon={<MapPin className="size-3.5 text-slate-400" />}>
+                  <span className="text-slate-800">{driver.homeBase || "—"}</span>
+                </DetailRow>
+                <DetailRow label="License expiry" icon={<CalendarClock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-700">{driver.licenseExpiry}</span>
+                </DetailRow>
+                <DetailRow label="Weekly hours" icon={<Clock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-700">{driver.hoursThisWeek}h / 60h</span>
+                </DetailRow>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex gap-3 mr-6">
+                <Button variant="outline" size="sm" className="flex-1 font-mono font-bold">
+                  <Pencil className="size-4 mr-1.5" /> Edit
+                </Button>
+                <Button size="sm" className="flex-1 font-mono font-bold bg-brand text-white hover:bg-brand/90">
+                  <Truck className="size-4 mr-1.5" /> Assign Vehicle
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>
