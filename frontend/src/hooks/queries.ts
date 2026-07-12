@@ -38,7 +38,21 @@ export function useUpdateVehicle() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
       apiClient.patch(`/vehicles/${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
+  });
+}
+
+export function useDeleteVehicle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/vehicles/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
   });
 }
 
@@ -61,7 +75,32 @@ export function useCreateDriver() {
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       apiClient.post("/drivers", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["drivers"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    },
+  });
+}
+
+export function useUpdateDriver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      apiClient.patch(`/drivers/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
+  });
+}
+
+export function useDeleteDriver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/drivers/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
   });
 }
 
@@ -93,7 +132,11 @@ export function useUpdateTripStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiClient.patch(`/trips/${id}/status`, { status }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    },
   });
 }
 
@@ -101,7 +144,11 @@ export function useCancelTrip() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.post(`/trips/${id}/cancel`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    },
   });
 }
 
@@ -109,7 +156,38 @@ export function useDispatchTrip() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.post(`/trips/${id}/dispatch`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    },
+  });
+}
+
+export function useCompleteTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      actualDistance,
+      fuelConsumed,
+      revenue,
+    }: {
+      id: string;
+      actualDistance: number;
+      fuelConsumed: number;
+      revenue: number;
+    }) =>
+      apiClient.post(`/trips/${id}/complete`, {
+        actualDistance,
+        fuelConsumed,
+        revenue,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trips"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    },
   });
 }
 
@@ -131,7 +209,11 @@ export function useCreateMaintenance() {
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       apiClient.post("/maintenance", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
   });
 }
 
@@ -139,7 +221,11 @@ export function useCloseMaintenance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.post(`/maintenance/${id}/close`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maintenance"] });
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
   });
 }
 
@@ -184,5 +270,23 @@ export function useLocations() {
       return res.data;
     },
     staleTime: 300_000,
+  });
+}
+
+export function useCreateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { vehicleId: string; type: string; amount: number; description: string; date?: string }) =>
+      apiClient.post("/fuel/expenses", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
+  });
+}
+
+export function useCreateFuelLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { vehicleId: string; liters: number; cost: number; odometer?: number; date?: string }) =>
+      apiClient.post("/fuel/logs", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
   });
 }

@@ -44,6 +44,8 @@ export function mapVehicle(v: any): Vehicle {
     nextService: "",
     utilization: v.status === "ON_TRIP" ? 85 : 0,
     vin: v.registrationNumber,
+    maxLoadCapacity: v.maxLoadCapacity ?? undefined,
+    acquisitionCost: v.acquisitionCost ? Number(v.acquisitionCost) : undefined,
   };
 }
 

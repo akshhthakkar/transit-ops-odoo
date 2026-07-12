@@ -14,6 +14,7 @@ import {
   Eye,
   XCircle,
   Send,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ import {
   useCreateTrip,
   useCancelTrip,
   useDispatchTrip,
+  useCompleteTrip,
 } from "@/hooks/queries";
 
 const statusOptions = [
@@ -98,6 +100,7 @@ export function NewTripDialog({
   const createTrip = useCreateTrip();
   const { data: vehicles = [] } = useVehicles();
   const { data: drivers = [] } = useDrivers();
+  const { data: trips = [] } = useTrips();
 
   const [form, setForm] = React.useState({
     source: "",
@@ -138,8 +141,23 @@ export function NewTripDialog({
     }
   }
 
-  const availableVehicles = vehicles.filter((v) => v.status === "available" || v.status === "idle");
-  const availableDrivers = drivers.filter((d) => d.status === "available" || d.status === "off_duty");
+  const assignedVehicleIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.vehicleId)
+  );
+  const assignedDriverIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.driverId)
+  );
+
+  const availableVehicles = vehicles.filter(
+    (v) => (v.status === "available" || v.status === "idle") && !assignedVehicleIds.has(v.id)
+  );
+  const availableDrivers = drivers.filter(
+    (d) => (d.status === "available" || d.status === "off_duty") && !assignedDriverIds.has(d.id)
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -222,6 +240,7 @@ export function TripsView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Trip | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [completeTripTarget, setCompleteTripTarget] = React.useState<Trip | null>(null);
   const { data: trips = [], isLoading } = useTrips();
   const cancelTrip = useCancelTrip();
   const dispatchTrip = useDispatchTrip();
@@ -310,6 +329,42 @@ export function TripsView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Trip ID", "Origin", "Destination", "Vehicle ID", "Driver ID", "Status", "Distance (km)", "Revenue ($)", "Departure"];
+    const rows = trips.map((t) => [
+      t.id,
+      t.origin,
+      t.destination,
+      t.vehicleId,
+      t.driverId,
+      t.status,
+      t.distance,
+      t.revenue,
+      t.departure ? new Date(t.departure).toISOString() : "",
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "trips-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -318,7 +373,7 @@ export function TripsView() {
         description={`${trips.length} trips · ${trips.filter((t) => t.status === "in_transit").length} in transit`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -395,6 +450,13 @@ export function TripsView() {
                     <Send className="size-4" /> Dispatch trip
                   </DropdownMenuItem>
                 )}
+                {t.status === "in_transit" && (
+                  <DropdownMenuItem
+                    onClick={() => setCompleteTripTarget(t)}
+                  >
+                    <CheckCircle2 className="size-4" /> Complete trip
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem>
                   <Pencil className="size-4" /> Edit trip
                 </DropdownMenuItem>
@@ -416,6 +478,7 @@ export function TripsView() {
 
       <TripDetailSheet trip={selected} onClose={() => setSelected(null)} />
       <NewTripDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <CompleteTripDialog trip={completeTripTarget} open={!!completeTripTarget} onClose={() => setCompleteTripTarget(null)} />
     </div>
   );
 }
@@ -520,5 +583,117 @@ function TripDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function CompleteTripDialog({
+  trip,
+  open,
+  onClose,
+}: {
+  trip: Trip | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const completeTrip = useCompleteTrip();
+  const [form, setForm] = React.useState({
+    actualDistance: "",
+    fuelConsumed: "",
+    revenue: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (trip) {
+      setForm({
+        actualDistance: String(trip.distance),
+        fuelConsumed: String(Math.round(trip.distance * 0.28)),
+        revenue: String(Math.round(trip.distance * 3.5)),
+      });
+    }
+  }, [trip]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!trip) return;
+    setError(null);
+    const { actualDistance, fuelConsumed, revenue } = form;
+    if (!actualDistance || !fuelConsumed || !revenue) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await completeTrip.mutateAsync({
+        id: trip.id,
+        actualDistance: Number(actualDistance),
+        fuelConsumed: Number(fuelConsumed),
+        revenue: Number(revenue),
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to complete trip.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Complete Trip</DialogTitle>
+          <DialogDescription>
+            Enter final transit details to release the vehicle and driver back to Available status.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="c_dist">Actual Distance (km) *</Label>
+            <Input
+              id="c_dist"
+              type="number"
+              min="0"
+              step="1"
+              value={form.actualDistance}
+              onChange={(e) => set("actualDistance", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="c_fuel">Fuel Consumed (Liters) *</Label>
+            <Input
+              id="c_fuel"
+              type="number"
+              min="0"
+              step="0.1"
+              value={form.fuelConsumed}
+              onChange={(e) => set("fuelConsumed", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="c_rev">Final Trip Revenue ($) *</Label>
+            <Input
+              id="c_rev"
+              type="number"
+              min="0"
+              step="1"
+              value={form.revenue}
+              onChange={(e) => set("revenue", e.target.value)}
+            />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={completeTrip.isPending}>
+              {completeTrip.isPending ? "Completing..." : "Complete Trip"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

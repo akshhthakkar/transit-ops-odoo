@@ -54,7 +54,15 @@ import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
 import { daysUntil, vehicleById, type Driver } from "@/lib/transit-data";
-import { useDrivers, useCreateDriver } from "@/hooks/queries";
+import {
+  useDrivers,
+  useCreateDriver,
+  useUpdateDriver,
+  useDeleteDriver,
+  useCreateTrip,
+  useVehicles,
+  useTrips,
+} from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -165,6 +173,9 @@ export function DriversView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Driver | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<Driver | null>(null);
+  const [assignTarget, setAssignTarget] = React.useState<Driver | null>(null);
+  const deleteDriver = useDeleteDriver();
   const { data: drivers = [], isLoading } = useDrivers();
 
   const filtered = React.useMemo(
@@ -270,6 +281,42 @@ export function DriversView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Driver ID", "Name", "License", "Status", "Home Base", "Phone", "Rating", "Trips Completed", "Hours This Week"];
+    const rows = drivers.map((d) => [
+      d.id,
+      d.name,
+      d.license,
+      d.status,
+      d.homeBase,
+      d.phone,
+      d.rating,
+      d.tripsCompleted,
+      d.hoursThisWeek,
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "drivers-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -278,7 +325,7 @@ export function DriversView() {
         description={`${drivers.length} drivers · ${drivers.filter((d) => d.status === "on_duty").length} currently on duty`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -314,14 +361,22 @@ export function DriversView() {
                 <DropdownMenuItem onClick={() => setSelected(d)}>
                   <Eye className="size-4" /> View profile
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEditTarget(d)}>
                   <Pencil className="size-4" /> Edit driver
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAssignTarget(d)}>
                   <Truck className="size-4" /> Assign vehicle
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-danger focus:text-danger">
+                <DropdownMenuItem
+                  className="text-danger focus:text-danger"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to deactivate driver ${d.name}?`)) {
+                      deleteDriver.mutate(d.id);
+                    }
+                  }}
+                  disabled={deleteDriver.isPending}
+                >
                   Deactivate
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -330,8 +385,15 @@ export function DriversView() {
         />
       </SectionCard>
 
-      <DriverDetailSheet driver={selected} onClose={() => setSelected(null)} />
+      <DriverDetailSheet
+        driver={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(d) => setEditTarget(d)}
+        onAssign={(d) => setAssignTarget(d)}
+      />
       <AddDriverDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <EditDriverDialog driver={editTarget} open={!!editTarget} onClose={() => setEditTarget(null)} />
+      <AssignVehicleDialog driver={assignTarget} open={!!assignTarget} onClose={() => setAssignTarget(null)} />
     </div>
   );
 }
@@ -359,9 +421,13 @@ function DetailRow({
 function DriverDetailSheet({
   driver,
   onClose,
+  onEdit,
+  onAssign,
 }: {
   driver: Driver | null;
   onClose: () => void;
+  onEdit: (d: Driver) => void;
+  onAssign: (d: Driver) => void;
 }) {
   const vehicle = driver ? vehicleById(driver.assignedVehicleId) : null;
   return (
@@ -435,11 +501,26 @@ function DriverDetailSheet({
               </DetailRow>
             </div>
 
-            <div className="mt-6 flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
+             <div className="mt-6 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onEdit(driver);
+                  onClose();
+                }}
+              >
                 <Pencil className="size-4" /> Edit
               </Button>
-              <Button size="sm" className="flex-1">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  onAssign(driver);
+                  onClose();
+                }}
+              >
                 <Truck className="size-4" /> Assign Vehicle
               </Button>
             </div>
@@ -447,5 +528,238 @@ function DriverDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function EditDriverDialog({
+  driver,
+  open,
+  onClose,
+}: {
+  driver: Driver | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const updateDriver = useUpdateDriver();
+  const [form, setForm] = React.useState({
+    name: "",
+    licenseNumber: "",
+    licenseCategory: "",
+    licenseExpiryDate: "",
+    contactNumber: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (driver) {
+      setForm({
+        name: driver.name,
+        licenseNumber: driver.license,
+        licenseCategory: "Class A",
+        licenseExpiryDate: driver.licenseExpiry ? driver.licenseExpiry.split("T")[0] : "",
+        contactNumber: driver.phone,
+      });
+    }
+  }, [driver]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!driver) return;
+    setError(null);
+    if (!form.name || !form.licenseNumber || !form.licenseCategory || !form.licenseExpiryDate || !form.contactNumber) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await updateDriver.mutateAsync({
+        id: driver.id,
+        name: form.name.trim(),
+        licenseNumber: form.licenseNumber.trim().toUpperCase(),
+        licenseCategory: form.licenseCategory,
+        licenseExpiryDate: new Date(form.licenseExpiryDate).toISOString(),
+        contactNumber: form.contactNumber.trim(),
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to update driver.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Driver</DialogTitle>
+          <DialogDescription>Modify driver registry information and license credentials.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="e-dname">Full Name *</Label>
+            <Input id="e-dname" placeholder="Marcus Holloway" value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dlic">License Number *</Label>
+              <Input id="e-dlic" placeholder="CDL-A TX119872" value={form.licenseNumber} onChange={(e) => set("licenseNumber", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dlcat">License Category *</Label>
+              <Select value={form.licenseCategory} onValueChange={(v) => set("licenseCategory", v)}>
+                <SelectTrigger id="e-dlcat"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {LICENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dexpiry">License Expiry *</Label>
+              <Input id="e-dexpiry" type="date" value={form.licenseExpiryDate} onChange={(e) => set("licenseExpiryDate", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-dphone">Contact Number *</Label>
+              <Input id="e-dphone" placeholder="+1 (214) 555-0182" value={form.contactNumber} onChange={(e) => set("contactNumber", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateDriver.isPending}>
+              {updateDriver.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function AssignVehicleDialog({
+  driver,
+  open,
+  onClose,
+}: {
+  driver: Driver | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createTrip = useCreateTrip();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: trips = [] } = useTrips();
+
+  const [form, setForm] = React.useState({
+    source: "",
+    destination: "",
+    vehicleId: "",
+    cargoWeight: "",
+    plannedDistance: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setForm({ source: "", destination: "", vehicleId: "", cargoWeight: "", plannedDistance: "" });
+      setError(null);
+    }
+  }, [open]);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!driver) return;
+    setError(null);
+    const { source, destination, vehicleId, cargoWeight, plannedDistance } = form;
+    if (!source || !destination || !vehicleId || !cargoWeight || !plannedDistance) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createTrip.mutateAsync({
+        source: source.trim(),
+        destination: destination.trim(),
+        vehicleId,
+        driverId: driver.id,
+        cargoWeight: Number(cargoWeight),
+        plannedDistance: Number(plannedDistance),
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to assign vehicle.");
+    }
+  }
+
+  const assignedVehicleIds = new Set(
+    trips
+      .filter((t) => t.status === "scheduled" || t.status === "in_transit")
+      .map((t) => t.vehicleId)
+  );
+
+  const availableVehicles = vehicles.filter(
+    (v) => (v.status === "available" || v.status === "idle") && !assignedVehicleIds.has(v.id)
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Assign Vehicle to {driver?.name}</DialogTitle>
+          <DialogDescription>Create a trip operation to assign a vehicle to this driver.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-src">Origin *</Label>
+              <Input id="a-src" placeholder="Dallas, TX" value={form.source} onChange={(e) => set("source", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-dst">Destination *</Label>
+              <Input id="a-dst" placeholder="Houston, TX" value={form.destination} onChange={(e) => set("destination", e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="a-veh">Vehicle *</Label>
+            <Select value={form.vehicleId} onValueChange={(v) => set("vehicleId", v)}>
+              <SelectTrigger id="a-veh">
+                <SelectValue placeholder={availableVehicles.length === 0 ? "No available vehicles" : "Select vehicle"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableVehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.plate} — {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-cargo">Cargo Weight (kg) *</Label>
+              <Input id="a-cargo" type="number" min="0" step="0.1" placeholder="20000" value={form.cargoWeight} onChange={(e) => set("cargoWeight", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-dist">Planned Distance (km) *</Label>
+              <Input id="a-dist" type="number" min="0" step="1" placeholder="380" value={form.plannedDistance} onChange={(e) => set("plannedDistance", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createTrip.isPending}>
+              {createTrip.isPending ? "Assigning…" : "Assign Vehicle"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

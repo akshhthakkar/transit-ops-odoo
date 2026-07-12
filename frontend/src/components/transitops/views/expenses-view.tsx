@@ -36,8 +36,30 @@ import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { MinimalDonutChart } from "../charts";
 import { DataTable, type Column } from "../tables/data-table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency, vehicleById, driverById, type Expense } from "@/lib/transit-data";
-import { useExpenses } from "@/hooks/queries";
+import {
+  useExpenses,
+  useVehicles,
+  useCreateExpense,
+  useCreateFuelLog,
+} from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -61,6 +83,7 @@ const categoryColors: Record<string, string> = {
 export function ExpensesView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Expense | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
   const { data: expenses = [], isLoading } = useExpenses();
 
   const filtered = React.useMemo(
@@ -171,6 +194,40 @@ export function ExpensesView() {
     },
   ];
 
+  const handleExport = () => {
+    const headers = ["Transaction ID", "Category", "Amount ($)", "Date", "Vendor/Description", "Vehicle ID", "Reference"];
+    const rows = expenses.map((e) => [
+      e.id,
+      e.category,
+      e.amount,
+      e.date,
+      e.vendor,
+      e.vehicleId || "",
+      e.reference || "",
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((val: any) => {
+            const str = String(val ?? "").replace(/"/g, '""');
+            return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
+          })
+          .join(",")
+      ),
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "expenses-export.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -179,10 +236,10 @@ export function ExpensesView() {
         description={`${expenses.length} transactions · ${pending.length} pending approval`}
         actions={
           <>
-            <Button variant="outline" size="sm" className="h-8">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport}>
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" /> Record Expense
             </Button>
           </>
@@ -297,6 +354,7 @@ export function ExpensesView() {
       </div>
 
       <ExpenseDetailSheet item={selected} onClose={() => setSelected(null)} />
+      <RecordExpenseDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
@@ -391,5 +449,212 @@ function ExpenseDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+export function RecordExpenseDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data: vehicles = [] } = useVehicles();
+  const createExpense = useCreateExpense();
+  const createFuelLog = useCreateFuelLog();
+
+  const [type, setType] = React.useState<"GENERAL" | "FUEL">("GENERAL");
+  const [vehicleId, setVehicleId] = React.useState("");
+  const [amount, setAmount] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [expenseType, setExpenseType] = React.useState("OTHER");
+
+  const [liters, setLiters] = React.useState("");
+  const [cost, setCost] = React.useState("");
+  const [odometer, setOdometer] = React.useState("");
+
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setType("GENERAL");
+      setVehicleId("");
+      setAmount("");
+      setDescription("");
+      setExpenseType("OTHER");
+      setLiters("");
+      setCost("");
+      setOdometer("");
+      setError(null);
+    }
+  }, [open]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!vehicleId) {
+      setError("Please select a vehicle.");
+      return;
+    }
+
+    try {
+      if (type === "GENERAL") {
+        if (!amount || !description) {
+          setError("Please enter amount and description.");
+          return;
+        }
+        await createExpense.mutateAsync({
+          vehicleId,
+          type: expenseType,
+          amount: Number(amount),
+          description: description.trim(),
+        });
+      } else {
+        if (!liters || !cost) {
+          setError("Please enter liters and cost.");
+          return;
+        }
+        await createFuelLog.mutateAsync({
+          vehicleId,
+          liters: Number(liters),
+          cost: Number(cost),
+          odometer: odometer ? Number(odometer) : undefined,
+        });
+      }
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to save record.");
+    }
+  }
+
+  const isPending = createExpense.isPending || createFuelLog.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Record Expense / Fuel Log</DialogTitle>
+          <DialogDescription>
+            Log general fleet expenses or fuel transactions.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Record Type *</Label>
+              <Select value={type} onValueChange={(v) => setType(v as "GENERAL" | "FUEL")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GENERAL">General Expense</SelectItem>
+                  <SelectItem value="FUEL">Fuel Log</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Vehicle *</Label>
+              <Select value={vehicleId} onValueChange={setVehicleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.plate} — {v.model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {type === "GENERAL" ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Expense Category *</Label>
+                  <Select value={expenseType} onValueChange={setExpenseType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TOLL">Toll Charge</SelectItem>
+                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                      <SelectItem value="OTHER">Other Expense</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Amount ($) *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="125.50"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Description / Vendor *</Label>
+                <Input
+                  placeholder="Pilot Travel Centers #452"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Fuel Volume (Liters) *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="350"
+                    value={liters}
+                    onChange={(e) => setLiters(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Total Cost ($) *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="480.00"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Odometer Reading (mi)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="145820"
+                  value={odometer}
+                  onChange={(e) => setOdometer(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          {error && <p className="text-xs text-destructive">{error}</p>}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving…" : "Save Record"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

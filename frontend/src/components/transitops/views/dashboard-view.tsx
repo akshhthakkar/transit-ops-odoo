@@ -135,13 +135,21 @@ export function DashboardView() {
     operationalCostMonth: summary?.operationalCostMonth ?? 0,
   };
 
+  const formattedDate = React.useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
 
   return (
     <div className="space-y-5">
       <PageHeader
         breadcrumb={[{ label: "Operations" }, { label: "Dashboard" }]}
         title="Operations Overview"
-        description="Real-time fleet performance for Thursday, September 4, 2025"
+        description={`Real-time fleet performance for ${formattedDate}`}
         actions={
           <>
             <Button variant="outline" size="sm" className="h-8">

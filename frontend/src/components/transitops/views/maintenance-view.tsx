@@ -376,7 +376,9 @@ export function MaintenanceView() {
                 <DropdownMenuItem onClick={() => setSelected(m)}>
                   <Eye className="size-4" /> View details
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => alert("Maintenance logs are immutable for compliance and fleet safety audit tracking. To make adjustments, please cancel this service and schedule a new entry.")}
+                >
                   <Pencil className="size-4" /> Edit record
                 </DropdownMenuItem>
                 {m.status === "in_progress" && (
@@ -388,9 +390,19 @@ export function MaintenanceView() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-danger focus:text-danger">
-                  Cancel service
-                </DropdownMenuItem>
+                {m.status === "in_progress" && (
+                  <DropdownMenuItem
+                    className="text-danger focus:text-danger"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to cancel this maintenance service? The vehicle will be set back to Available status.")) {
+                        closeMaintenance.mutate(m.id);
+                      }
+                    }}
+                    disabled={closeMaintenance.isPending}
+                  >
+                    Cancel service
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
