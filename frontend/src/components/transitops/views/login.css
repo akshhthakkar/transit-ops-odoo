@@ -163,6 +163,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overflow: hidden;
+  width: 100%;
 }
 
 .demo-credentials-header {
@@ -205,8 +207,10 @@
   background-color: var(--accent-bg);
   cursor: pointer;
   text-align: left;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .demo-credential-card:hover {
