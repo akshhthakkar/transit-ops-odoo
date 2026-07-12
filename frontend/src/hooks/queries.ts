@@ -94,6 +94,22 @@ export function useUpdateTripStatus() {
   });
 }
 
+export function useCancelTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/trips/${id}/cancel`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+  });
+}
+
+export function useDispatchTrip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/trips/${id}/dispatch`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+  });
+}
+
 // ─── Maintenance ─────────────────────────────────────────────────────────────
 
 export function useMaintenance() {
@@ -112,6 +128,14 @@ export function useCreateMaintenance() {
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       apiClient.post("/maintenance", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
+  });
+}
+
+export function useCloseMaintenance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/maintenance/${id}/close`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
   });
 }

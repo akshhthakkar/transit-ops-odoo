@@ -25,19 +25,36 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "../page-header";
 import { SectionCard } from "../section-card";
 import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
-import { daysUntil, vehicleById, driverById, type Driver } from "@/lib/transit-data";
-import { useDrivers } from "@/hooks/queries";
+import { daysUntil, vehicleById, type Driver } from "@/lib/transit-data";
+import { useDrivers, useCreateDriver } from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -47,9 +64,107 @@ const statusOptions = [
   { value: "on_leave", label: "On Leave" },
 ];
 
+const LICENSE_CATEGORIES = ["CDL-A", "CDL-B", "CDL-C", "Class D", "Class C"];
+
+function AddDriverDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createDriver = useCreateDriver();
+  const [form, setForm] = React.useState({
+    name: "",
+    licenseNumber: "",
+    licenseCategory: "",
+    licenseExpiryDate: "",
+    contactNumber: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const { name, licenseNumber, licenseCategory, licenseExpiryDate, contactNumber } = form;
+    if (!name || !licenseNumber || !licenseCategory || !licenseExpiryDate || !contactNumber) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createDriver.mutateAsync({
+        name: name.trim(),
+        licenseNumber: licenseNumber.trim().toUpperCase(),
+        licenseCategory: licenseCategory.trim(),
+        licenseExpiryDate,
+        contactNumber: contactNumber.trim(),
+      });
+      setForm({ name: "", licenseNumber: "", licenseCategory: "", licenseExpiryDate: "", contactNumber: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to add driver.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Driver</DialogTitle>
+          <DialogDescription>Register a new driver to the fleet.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="dname">Full Name *</Label>
+            <Input id="dname" placeholder="Marcus Holloway" value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="dlic">License Number *</Label>
+              <Input id="dlic" placeholder="CDL-A TX119872" value={form.licenseNumber} onChange={(e) => set("licenseNumber", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dlcat">License Category *</Label>
+              <Select value={form.licenseCategory} onValueChange={(v) => set("licenseCategory", v)}>
+                <SelectTrigger id="dlcat"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {LICENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="dexpiry">License Expiry *</Label>
+              <Input id="dexpiry" type="date" value={form.licenseExpiryDate} onChange={(e) => set("licenseExpiryDate", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dphone">Contact Number *</Label>
+              <Input id="dphone" placeholder="+1 (214) 555-0182" value={form.contactNumber} onChange={(e) => set("contactNumber", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createDriver.isPending}>
+              {createDriver.isPending ? "Adding…" : "Add Driver"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function DriversView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Driver | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
   const { data: drivers = [], isLoading } = useDrivers();
 
   const filtered = React.useMemo(
@@ -166,7 +281,7 @@ export function DriversView() {
             <Button variant="outline" size="sm" className="h-8">
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" /> Add Driver
             </Button>
           </>
@@ -216,6 +331,7 @@ export function DriversView() {
       </SectionCard>
 
       <DriverDetailSheet driver={selected} onClose={() => setSelected(null)} />
+      <AddDriverDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
