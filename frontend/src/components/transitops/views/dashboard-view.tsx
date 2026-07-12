@@ -143,6 +143,15 @@ export function DashboardView() {
       .sort((a, b) => a.days - b.days);
   }, [drivers]);
 
+  const formattedDate = React.useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
+
   if ((isLoadingSummary && !summary) || isLoadingVehicles || isLoadingTrips || isLoadingDrivers || isLoadingMaintenance) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -163,15 +172,6 @@ export function DashboardView() {
     maintenanceCostMonth: summary?.maintenanceCostMonth ?? 0,
     operationalCostMonth: summary?.operationalCostMonth ?? 0,
   };
-
-  const formattedDate = React.useMemo(() => {
-    return new Date().toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }, []);
 
   return (
     <div className="space-y-5">
