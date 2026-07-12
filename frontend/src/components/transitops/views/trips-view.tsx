@@ -88,7 +88,7 @@ function Progress({ value, status }: { value: number; status: string }) {
   );
 }
 
-function NewTripDialog({
+export function NewTripDialog({
   open,
   onClose,
 }: {
@@ -504,10 +504,10 @@ function TripDetailSheet({
                 {driver?.name ?? trip.driverId?.slice(0, 8)}
               </DetailRow>
               <DetailRow label="Departure" icon={<Clock className="size-3.5" />}>
-                {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
               </DetailRow>
               <DetailRow label="ETA" icon={<Clock className="size-3.5" />}>
-                {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) + " IST" : "—"}
               </DetailRow>
               <DetailRow label="Distance" icon={<MapPin className="size-3.5" />}>
                 {trip.distance} km

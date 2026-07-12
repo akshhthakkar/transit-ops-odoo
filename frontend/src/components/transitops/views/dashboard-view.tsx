@@ -44,6 +44,7 @@ import {
   type AlertSeverity,
 } from "@/lib/transit-data";
 import { useMaintenance, useDashboardSummary, useVehicles, useTrips, useDrivers } from "@/hooks/queries";
+import { NewTripDialog } from "./trips-view";
 
 const severityMeta: Record<AlertSeverity, { tone: Tone; icon: typeof CircleAlert }> = {
   critical: { tone: "danger", icon: CircleAlert },
@@ -60,6 +61,7 @@ const vehicleStatusTone: Record<string, Tone> = {
 };
 
 export function DashboardView() {
+  const [newTripOpen, setNewTripOpen] = React.useState(false);
   const { data: summary, isLoading: isLoadingSummary } = useDashboardSummary();
   const { data: vehicles = [], isLoading: isLoadingVehicles } = useVehicles();
   const { data: trips = [], isLoading: isLoadingTrips } = useTrips();
@@ -145,7 +147,7 @@ export function DashboardView() {
             <Button variant="outline" size="sm" className="h-8">
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setNewTripOpen(true)}>
               <Plus className="size-4" /> New Trip
             </Button>
           </>
@@ -213,6 +215,8 @@ export function DashboardView() {
         />
 
       </div>
+
+      <NewTripDialog open={newTripOpen} onClose={() => setNewTripOpen(false)} />
     </div>
   );
 }
