@@ -17,7 +17,8 @@ export function useVehicles() {
     queryKey: ["vehicles"],
     queryFn: async () => {
       const res = await apiClient.get("/vehicles");
-      return (res.data.data ?? res.data).map(mapVehicle);
+      const list = res.data.items ?? res.data.data ?? res.data;
+      return Array.isArray(list) ? list.map(mapVehicle) : [];
     },
     staleTime: 30_000,
   });
@@ -48,7 +49,8 @@ export function useDrivers() {
     queryKey: ["drivers"],
     queryFn: async () => {
       const res = await apiClient.get("/drivers");
-      return (res.data.data ?? res.data).map(mapDriver);
+      const list = res.data.items ?? res.data.data ?? res.data;
+      return Array.isArray(list) ? list.map(mapDriver) : [];
     },
     staleTime: 30_000,
   });
@@ -70,7 +72,8 @@ export function useTrips() {
     queryKey: ["trips"],
     queryFn: async () => {
       const res = await apiClient.get("/trips");
-      return (res.data.data ?? res.data).map(mapTrip);
+      const list = res.data.items ?? res.data.data ?? res.data;
+      return Array.isArray(list) ? list.map(mapTrip) : [];
     },
     staleTime: 30_000,
   });
