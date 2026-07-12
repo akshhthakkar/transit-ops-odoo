@@ -1,33 +1,126 @@
 import { prisma } from '../../lib/prisma';
+import { MaintenanceStatus } from '@prisma/client';
 
 export const maintenanceService = {
   async findAll() {
     return prisma.maintenanceLog.findMany({
-      include: { vehicle: true },
+      where: { deletedAt: null },
+      include: {
+        vehicle: {
+          select: { id: true, registrationNumber: true, name: true, status: true },
+        },
+        vendor: {
+          select: { id: true, name: true },
+        },
+      },
       orderBy: { startedAt: 'desc' },
     });
   },
 
   async findById(id: string) {
-    return prisma.maintenanceLog.findUnique({
-      where: { id },
-      include: { vehicle: true },
+    return prisma.maintenanceLog.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        vehicle: true,
+        vendor: true,
+      },
     });
   },
 
-  async create(data: unknown) {
-    // TODO: implement in Phase 4
-    // Use prisma.$transaction:
-    //   1. Create MaintenanceLog (status: ACTIVE)
-    //   2. Set vehicle.status = IN_SHOP
-    throw new Error('Not implemented');
+  async create(
+    data: {
+      vehicleId: string;
+      maintenanceType?: string;
+      description: string;
+      vendorId?: string;
+      priority?: string;
+      cost: number;
+    },
+    reqUser: any
+  ) {
+    const vehicle = await prisma.vehicle.findFirst({
+      where: { id: data.vehicleId, deletedAt: null },
+    });
+
+    if (!vehicle) {
+      throw Object.assign(new Error('Vehicle not found'), { statusCode: 404 });
+    }
+
+    if (vehicle.status === 'ON_TRIP') {
+      throw Object.assign(new Error('Cannot send a vehicle currently on a trip to maintenance'), { statusCode: 400 });
+    }
+
+    if (data.vendorId) {
+      const vendor = await prisma.vendor.findUnique({ where: { id: data.vendorId } });
+      if (!vendor) {
+        throw Object.assign(new Error('Vendor not found'), { statusCode: 404 });
+      }
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Create maintenance log
+      const log = await tx.maintenanceLog.create({
+        data: {
+          vehicleId: data.vehicleId,
+          maintenanceType: data.maintenanceType,
+          description: data.description,
+          vendorId: data.vendorId,
+          priority: data.priority,
+          cost: data.cost,
+          status: 'ACTIVE',
+          createdById: reqUser.id,
+        },
+        include: { vehicle: true, vendor: true },
+      });
+
+      // Update vehicle status
+      await tx.vehicle.update({
+        where: { id: data.vehicleId },
+        data: { status: 'IN_SHOP' },
+      });
+
+      return log;
+    }, { timeout: 15000 });
   },
 
-  async close(id: string) {
-    // TODO: implement in Phase 4
-    // Use prisma.$transaction:
-    //   1. Set MaintenanceLog.status = CLOSED, closedAt = now()
-    //   2. Set vehicle.status = AVAILABLE (unless RETIRED)
-    throw new Error('Not implemented');
+  async close(id: string, reqUser: any) {
+    const log = await prisma.maintenanceLog.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!log) {
+      throw Object.assign(new Error('Maintenance log not found'), { statusCode: 404 });
+    }
+
+    if (log.status === 'CLOSED') {
+      throw Object.assign(new Error('Maintenance log is already closed'), { statusCode: 400 });
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Close log
+      const updatedLog = await tx.maintenanceLog.update({
+        where: { id },
+        data: {
+          status: 'CLOSED',
+          closedAt: new Date(),
+          updatedById: reqUser.id,
+        },
+        include: { vehicle: true, vendor: true },
+      });
+
+      // Update vehicle status back to AVAILABLE unless it is RETIRED
+      const vehicle = await tx.vehicle.findUnique({
+        where: { id: log.vehicleId },
+      });
+
+      if (vehicle && vehicle.status !== 'RETIRED') {
+        await tx.vehicle.update({
+          where: { id: log.vehicleId },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+
+      return updatedLog;
+    }, { timeout: 15000 });
   },
 };

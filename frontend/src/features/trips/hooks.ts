@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tripsApi, locationsApi } from './api';
+import { tripsApi, locationsApi, vendorsApi } from './api';
 
 export const TRIPS_KEY = ['trips'] as const;
 
@@ -73,5 +73,12 @@ export function useLocations() {
   return useQuery({
     queryKey: ['locations'],
     queryFn: locationsApi.getAll,
+  });
+}
+
+export function useVendors() {
+  return useQuery({
+    queryKey: ['vendors'],
+    queryFn: vendorsApi.getAll,
   });
 }

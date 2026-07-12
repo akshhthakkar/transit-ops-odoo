@@ -24,3 +24,9 @@ export const locationsApi = {
   getAll: () =>
     apiClient.get('/locations').then((r) => r.data),
 };
+
+export const vendorsApi = {
+  getAll: () =>
+    apiClient.get('/vendors').then((r) => r.data),
+};
+
