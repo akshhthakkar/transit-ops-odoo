@@ -118,19 +118,36 @@ export function LoginView() {
           </div>
 
           {/* Row 4: Demo Credentials */}
-          <div className="auth-row" style={{ padding: "24px 40px" }}>
-            <div style={{
-              borderRadius: "8px",
-              border: "1px solid #E2E8F0",
-              backgroundColor: "#F8FAFC",
-              padding: "12px",
-              fontSize: "12px",
-              color: "#64748B",
-            }}>
-              <p style={{ margin: "0 0 6px 0", fontWeight: 600, color: "#0F172A" }}>Demo Credentials</p>
-              <p style={{ margin: "2px 0" }}>fleet@transitops.com / password123</p>
-              <p style={{ margin: "2px 0" }}>safety@transitops.com / password123</p>
-              <p style={{ margin: "2px 0" }}>finance@transitops.com / password123</p>
+          <div className="auth-row" style={{ padding: "20px 40px" }}>
+            <div className="demo-credentials-section">
+              <div className="demo-credentials-header">
+                <span className="demo-credentials-icon">⚡</span>
+                <span className="demo-credentials-title">Quick Access — Demo Accounts</span>
+                <span className="demo-credentials-hint">Click any role to fill</span>
+              </div>
+              <div className="demo-credentials-grid">
+                {[
+                  { role: "Fleet", email: "fleet@transitops.com", color: "#3B82F6", bg: "rgba(59,130,246,0.08)", icon: "🚛" },
+                  { role: "Safety", email: "safety@transitops.com", color: "#10B981", bg: "rgba(16,185,129,0.08)", icon: "🛡️" },
+                  { role: "Finance", email: "finance@transitops.com", color: "#8B5CF6", bg: "rgba(139,92,246,0.08)", icon: "💼" },
+                ].map(({ role, email, color, bg, icon }) => (
+                  <button
+                    key={role}
+                    type="button"
+                    className="demo-credential-card"
+                    style={{ "--accent": color, "--accent-bg": bg } as React.CSSProperties}
+                    onClick={() => { setEmail(email); setPassword("password123"); }}
+                    title={`Sign in as ${role} Manager`}
+                  >
+                    <span className="demo-card-icon">{icon}</span>
+                    <div className="demo-card-body">
+                      <span className="demo-card-role">{role}</span>
+                      <span className="demo-card-email">{email}</span>
+                    </div>
+                    <span className="demo-card-arrow">→</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid-h-line" style={{ bottom: 0 }} />
