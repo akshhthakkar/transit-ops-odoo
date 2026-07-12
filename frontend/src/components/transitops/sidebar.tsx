@@ -8,6 +8,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Package } from "lucide-react";
 import { kpis } from "@/lib/transit-data";
 
+import { useVehicles, useDrivers, useTrips, useMaintenance } from "@/hooks/queries";
+
 function BrandMark() {
   return (
     <div className="flex items-center gap-2.5 px-1">
@@ -28,6 +30,19 @@ function BrandMark() {
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { active, set } = useNav();
+
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
+  const { data: trips = [] } = useTrips();
+  const { data: maintenance = [] } = useMaintenance();
+
+  const counts: Record<string, number> = {
+    vehicles: vehicles.length,
+    drivers: drivers.length,
+    trips: trips.length,
+    maintenance: maintenance.filter((m) => m.status !== "completed").length,
+  };
+
   return (
     <nav className="flex flex-col gap-5 px-3 py-4">
       {navGroups.map((group) => (
@@ -38,6 +53,8 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           {group.items.map((item) => {
             const isActive = active === item.key;
             const Icon = item.icon;
+            const badge = counts[item.key] !== undefined ? counts[item.key] : item.badge;
+
             return (
               <button
                 key={item.key}
@@ -69,7 +86,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                   strokeWidth={2}
                 />
                 <span className="flex-1 text-left">{item.label}</span>
-                {item.badge !== undefined && (
+                {badge !== undefined && (
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 text-[10px] font-medium tnum",
@@ -78,7 +95,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                         : "bg-muted text-muted-foreground"
                     )}
                   >
-                    {item.badge}
+                    {badge}
                   </span>
                 )}
               </button>
@@ -91,6 +108,17 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function FleetStatus() {
+  const { data: vehicles = [] } = useVehicles();
+  
+  const activeVehicles = vehicles.filter((v) => v.status === "active").length;
+  
+  const utilizationSum = vehicles.reduce((s, v) => {
+    const util = (v as any).utilization ?? (v.status === "active" ? 85 : v.status === "available" ? 65 : 0);
+    return s + util;
+  }, 0);
+  
+  const fleetUtilization = Math.round(utilizationSum / (vehicles.length || 1));
+
   return (
     <div className="mx-3 mb-3 rounded-lg border border-border bg-muted/40 p-3">
       <div className="flex items-center justify-between">
@@ -103,11 +131,11 @@ function FleetStatus() {
       <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.06]">
         <div
           className="h-full rounded-full bg-foreground/80"
-          style={{ width: `${kpis.fleetUtilization}%` }}
+          style={{ width: `${fleetUtilization}%` }}
         />
       </div>
       <p className="mt-1.5 text-[10px] text-muted-foreground">
-        {kpis.fleetUtilization}% utilization · {kpis.activeVehicles} active
+        {fleetUtilization}% utilization · {activeVehicles} active
       </p>
     </div>
   );
