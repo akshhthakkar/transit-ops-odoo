@@ -418,12 +418,12 @@ function DetailRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center justify-between gap-4 py-3.5 hover:bg-slate-50/45 transition-colors px-1.5 border-b border-border/40 last:border-b-0">
+      <span className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
         {icon}
         {label}
       </span>
-      <span className="text-right text-sm font-medium text-foreground">{children}</span>
+      <span className="text-right text-sm font-semibold text-slate-800">{children}</span>
     </div>
   );
 }
@@ -442,67 +442,106 @@ function MaintenanceDetailSheet({
   const vehicle = item ? vehicleById(item.vehicleId) : null;
   return (
     <Sheet open={!!item} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md p-0 border-l border-border bg-[#F9FAFB] font-sans">
         {item && (
-          <>
-            <SheetHeader className="space-y-3">
-              <div className="flex size-11 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground/70">
-                <Wrench className="size-5" />
+          <div className="flex flex-col min-h-full relative pb-10">
+            {/* Retro Vertical Grid Lines */}
+            <div className="absolute left-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+            <div className="absolute right-[30px] top-0 bottom-0 w-[1px] bg-slate-200 pointer-events-none" />
+
+            {/* Row 1: Header */}
+            <div className="relative px-[45px] py-7 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-7 items-center justify-center rounded border border-border bg-white text-foreground/70">
+                    <Wrench className="size-4 text-brand" />
+                  </div>
+                  <h3 className="text-xl font-extrabold font-mono tracking-tight text-slate-900">
+                    {item.id.slice(0, 8).toUpperCase()}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 font-semibold font-mono">
+                  {item.type} · {vehicle?.plate ?? item.vehicleId?.slice(0, 8)}
+                </p>
               </div>
-              <div>
-                <SheetTitle className="text-lg font-mono">{item.id.slice(0, 8).toUpperCase()}</SheetTitle>
-                <SheetDescription>{item.type} · {vehicle?.plate ?? item.vehicleId?.slice(0, 8)}</SheetDescription>
-              </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-1.5 mr-6 items-end">
                 <DomainStatusBadge status={item.status} />
                 <StatusBadge tone={priorityTone[item.priority]}>{item.priority} priority</StatusBadge>
               </div>
-            </SheetHeader>
-
-            <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Description
-              </p>
-              <p className="mt-1 text-sm text-foreground">{item.description}</p>
             </div>
 
-            <div className="mt-5 divide-y divide-border/60">
-              <h4 className="px-1 pb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {/* Row 2: Description Card */}
+            <div className="relative px-[45px] py-6">
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-200 pointer-events-none" />
+              <div className="absolute left-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+              <div className="absolute right-[25px] bottom-[-6px] font-mono text-[11px] text-slate-400 bg-[#F9FAFB] w-[11px] h-[11px] flex items-center justify-center z-10 pointer-events-none">+</div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4 relative shadow-sm">
+                {/* Plus corner markers for description card */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Description
+                </p>
+                <p className="mt-1 text-sm text-slate-700 font-medium">{item.description || "No description provided."}</p>
+              </div>
+            </div>
+
+            {/* Row 3: Detail Attributes Grid */}
+            <div className="relative px-[45px] py-6 flex-1 bg-white mt-1">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mb-4 font-mono">
                 Service Details
               </h4>
-              <DetailRow label="Vehicle" icon={<Wrench className="size-3.5" />}>
-                {vehicle?.plate ?? item.vehicleId?.slice(0, 8)} · {vehicle?.model}
-              </DetailRow>
-              <DetailRow label="Service type" icon={<Wrench className="size-3.5" />}>
-                {item.type}
-              </DetailRow>
-              <DetailRow label="Logged date" icon={<CalendarClock className="size-3.5" />}>
-                {item.scheduled}
-              </DetailRow>
-              <DetailRow label="Technician" icon={<User className="size-3.5" />}>
-                {item.technician}
-              </DetailRow>
-              <DetailRow label="Estimated cost" icon={<CircleCheck className="size-3.5" />}>
-                {formatCurrency(item.cost)}
-              </DetailRow>
-            </div>
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm p-1.5 relative">
+                {/* Plus corner decoration for details grid */}
+                <div className="absolute left-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] top-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute left-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
+                <div className="absolute right-[-6px] bottom-[-6px] font-mono text-[11px] text-slate-300 bg-white w-3 h-3 flex items-center justify-center pointer-events-none">+</div>
 
-            <div className="mt-6 flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                <Pencil className="size-4" /> Edit
-              </Button>
-              {item.status === "in_progress" && (
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => { onMarkComplete(item.id); onClose(); }}
-                  disabled={isClosing}
-                >
-                  <CircleCheck className="size-4" /> Mark Complete
+                <DetailRow label="Vehicle" icon={<Wrench className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-slate-800 font-bold">{vehicle?.plate ?? item.vehicleId?.slice(0, 8)}</span>
+                  {vehicle && <span className="text-slate-400 text-xs ml-1 font-mono">({vehicle.model})</span>}
+                </DetailRow>
+                <DetailRow label="Service type" icon={<Wrench className="size-3.5 text-slate-400" />}>
+                  <span className="text-slate-800 font-bold font-display">{item.type}</span>
+                </DetailRow>
+                <DetailRow label="Logged date" icon={<CalendarClock className="size-3.5 text-slate-400" />}>
+                  <span className="font-mono text-xs text-slate-600">{item.scheduled}</span>
+                </DetailRow>
+                <DetailRow label="Technician" icon={<User className="size-3.5 text-slate-400" />}>
+                  <span className="text-slate-800 font-semibold">{item.technician}</span>
+                </DetailRow>
+                <DetailRow label="Estimated cost" icon={<CircleCheck className="size-3.5 text-slate-400" />}>
+                  <span className="font-bold text-brand">{formatCurrency(item.cost)}</span>
+                </DetailRow>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex gap-3 mr-6">
+                <Button variant="outline" size="sm" className="flex-1 font-mono font-bold">
+                  <Pencil className="size-4 mr-1.5" /> Edit
                 </Button>
-              )}
+                {item.status === "in_progress" && (
+                  <Button
+                    size="sm"
+                    className="flex-1 font-mono font-bold bg-brand text-white hover:bg-brand/90"
+                    onClick={() => { onMarkComplete(item.id); onClose(); }}
+                    disabled={isClosing}
+                  >
+                    <CircleCheck className="size-4 mr-1.5" /> Mark Complete
+                  </Button>
+                )}
+              </div>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>
