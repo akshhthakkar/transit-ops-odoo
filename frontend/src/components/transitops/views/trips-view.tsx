@@ -88,7 +88,7 @@ function Progress({ value, status }: { value: number; status: string }) {
   );
 }
 
-function NewTripDialog({
+export function NewTripDialog({
   open,
   onClose,
 }: {
