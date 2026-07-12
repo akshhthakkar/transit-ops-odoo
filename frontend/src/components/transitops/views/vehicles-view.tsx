@@ -25,19 +25,36 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "../page-header";
 import { SectionCard } from "../section-card";
 import { StatusBadge, DomainStatusBadge } from "../status-badge";
 import { FilterChips } from "../filter-chips";
 import { DataTable, type Column } from "../tables/data-table";
-import { formatNumber, vehicleById, driverById, type Vehicle } from "@/lib/transit-data";
-import { useVehicles } from "@/hooks/queries";
+import { formatNumber, driverById, type Vehicle } from "@/lib/transit-data";
+import { useVehicles, useCreateVehicle } from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -47,6 +64,8 @@ const statusOptions = [
   { value: "idle", label: "Idle" },
   { value: "offline", label: "Offline" },
 ];
+
+const VEHICLE_TYPES = ["Tractor", "Box Truck", "Reefer", "Flatbed", "Sprinter Van", "Straight Truck"];
 
 function MiniBar({ value, tone = "brand" }: { value: number; tone?: string }) {
   const color =
@@ -64,9 +83,118 @@ function MiniBar({ value, tone = "brand" }: { value: number; tone?: string }) {
   );
 }
 
+function AddVehicleDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createVehicle = useCreateVehicle();
+  const [form, setForm] = React.useState({
+    registrationNumber: "",
+    name: "",
+    type: "",
+    maxLoadCapacity: "",
+    acquisitionCost: "",
+    region: "",
+    odometer: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!form.registrationNumber || !form.name || !form.type || !form.maxLoadCapacity || !form.acquisitionCost) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createVehicle.mutateAsync({
+        registrationNumber: form.registrationNumber.trim().toUpperCase(),
+        name: form.name.trim(),
+        type: form.type,
+        maxLoadCapacity: Number(form.maxLoadCapacity),
+        acquisitionCost: Number(form.acquisitionCost),
+        region: form.region.trim() || undefined,
+        odometer: form.odometer ? Number(form.odometer) : undefined,
+      });
+      setForm({ registrationNumber: "", name: "", type: "", maxLoadCapacity: "", acquisitionCost: "", region: "", odometer: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to add vehicle.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Vehicle</DialogTitle>
+          <DialogDescription>Register a new vehicle to the fleet.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="reg">Registration Number *</Label>
+              <Input id="reg" placeholder="TX-7841" value={form.registrationNumber} onChange={(e) => set("registrationNumber", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="vtype">Type *</Label>
+              <Select value={form.type} onValueChange={(v) => set("type", v)}>
+                <SelectTrigger id="vtype"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {VEHICLE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vname">Vehicle Name / Model *</Label>
+            <Input id="vname" placeholder="Volvo VNL 760" value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="capacity">Max Load (tons) *</Label>
+              <Input id="capacity" type="number" min="0" step="0.1" placeholder="20" value={form.maxLoadCapacity} onChange={(e) => set("maxLoadCapacity", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cost">Acquisition Cost ($) *</Label>
+              <Input id="cost" type="number" min="0" placeholder="150000" value={form.acquisitionCost} onChange={(e) => set("acquisitionCost", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="region">Region</Label>
+              <Input id="region" placeholder="Dallas, TX" value={form.region} onChange={(e) => set("region", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="odo">Odometer (mi)</Label>
+              <Input id="odo" type="number" min="0" placeholder="0" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createVehicle.isPending}>
+              {createVehicle.isPending ? "Adding…" : "Add Vehicle"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function VehiclesView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Vehicle | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
   const { data: vehicles = [], isLoading } = useVehicles();
 
   const filtered = React.useMemo(
@@ -174,7 +302,7 @@ export function VehiclesView() {
             <Button variant="outline" size="sm" className="h-8">
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" /> Add Vehicle
             </Button>
           </>
@@ -225,6 +353,7 @@ export function VehiclesView() {
       </SectionCard>
 
       <VehicleDetailSheet vehicle={selected} onClose={() => setSelected(null)} />
+      <AddVehicleDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }

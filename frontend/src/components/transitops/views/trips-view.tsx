@@ -13,6 +13,7 @@ import {
   Pencil,
   Eye,
   XCircle,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,12 +25,29 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "../page-header";
 import { SectionCard } from "../section-card";
 import { DomainStatusBadge } from "../status-badge";
@@ -37,7 +55,14 @@ import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { DataTable, type Column } from "../tables/data-table";
 import { formatCurrency, vehicleById, driverById, type Trip } from "@/lib/transit-data";
-import { useTrips } from "@/hooks/queries";
+import {
+  useTrips,
+  useVehicles,
+  useDrivers,
+  useCreateTrip,
+  useCancelTrip,
+  useDispatchTrip,
+} from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -63,10 +88,143 @@ function Progress({ value, status }: { value: number; status: string }) {
   );
 }
 
+function NewTripDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createTrip = useCreateTrip();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [] } = useDrivers();
+
+  const [form, setForm] = React.useState({
+    source: "",
+    destination: "",
+    vehicleId: "",
+    driverId: "",
+    cargoWeight: "",
+    plannedDistance: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const { source, destination, vehicleId, driverId, cargoWeight, plannedDistance } = form;
+    if (!source || !destination || !vehicleId || !driverId || !cargoWeight || !plannedDistance) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await createTrip.mutateAsync({
+        source: source.trim(),
+        destination: destination.trim(),
+        vehicleId,
+        driverId,
+        cargoWeight: Number(cargoWeight),
+        plannedDistance: Number(plannedDistance),
+      });
+      setForm({ source: "", destination: "", vehicleId: "", driverId: "", cargoWeight: "", plannedDistance: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to create trip.");
+    }
+  }
+
+  const availableVehicles = vehicles.filter((v) => v.status === "available" || v.status === "idle");
+  const availableDrivers = drivers.filter((d) => d.status === "available" || d.status === "off_duty");
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New Trip</DialogTitle>
+          <DialogDescription>Create a new DRAFT trip. Assign a vehicle and driver then dispatch.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="tsrc">Origin *</Label>
+              <Input id="tsrc" placeholder="Dallas, TX" value={form.source} onChange={(e) => set("source", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tdst">Destination *</Label>
+              <Input id="tdst" placeholder="Houston, TX" value={form.destination} onChange={(e) => set("destination", e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tveh">Vehicle *</Label>
+            <Select value={form.vehicleId} onValueChange={(v) => set("vehicleId", v)}>
+              <SelectTrigger id="tveh">
+                <SelectValue placeholder={availableVehicles.length === 0 ? "No available vehicles" : "Select vehicle"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableVehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.plate} — {v.model}
+                  </SelectItem>
+                ))}
+                {availableVehicles.length === 0 && (
+                  <SelectItem value="none" disabled>No available vehicles</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tdrv">Driver *</Label>
+            <Select value={form.driverId} onValueChange={(v) => set("driverId", v)}>
+              <SelectTrigger id="tdrv">
+                <SelectValue placeholder={availableDrivers.length === 0 ? "No available drivers" : "Select driver"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDrivers.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name} — {d.license}
+                  </SelectItem>
+                ))}
+                {availableDrivers.length === 0 && (
+                  <SelectItem value="none" disabled>No available drivers</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="tcargo">Cargo Weight (kg) *</Label>
+              <Input id="tcargo" type="number" min="0" step="0.1" placeholder="20000" value={form.cargoWeight} onChange={(e) => set("cargoWeight", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tdist">Planned Distance (km) *</Label>
+              <Input id="tdist" type="number" min="0" step="1" placeholder="380" value={form.plannedDistance} onChange={(e) => set("plannedDistance", e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createTrip.isPending}>
+              {createTrip.isPending ? "Creating…" : "Create Trip"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function TripsView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<Trip | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
   const { data: trips = [], isLoading } = useTrips();
+  const cancelTrip = useCancelTrip();
+  const dispatchTrip = useDispatchTrip();
 
   const filtered = React.useMemo(
     () => (filter === "all" ? trips : trips.filter((t) => t.status === filter)),
@@ -88,7 +246,7 @@ export function TripsView() {
     {
       key: "id",
       header: "Trip",
-      cell: (t) => <span className="font-medium text-foreground">{t.id}</span>,
+      cell: (t) => <span className="font-medium text-foreground">{t.id.slice(0, 8)}</span>,
       sortValue: (t) => t.id,
     },
     {
@@ -109,14 +267,14 @@ export function TripsView() {
     {
       key: "vehicle",
       header: "Vehicle",
-      cell: (t) => vehicleById(t.vehicleId)?.plate ?? "—",
+      cell: (t) => vehicleById(t.vehicleId)?.plate ?? <span className="text-muted-foreground text-xs">{t.vehicleId?.slice(0, 8)}</span>,
       sortValue: (t) => vehicleById(t.vehicleId)?.plate ?? "",
       hideOnMobile: true,
     },
     {
       key: "driver",
       header: "Driver",
-      cell: (t) => driverById(t.driverId)?.name ?? "—",
+      cell: (t) => driverById(t.driverId)?.name ?? <span className="text-muted-foreground text-xs">{t.driverId?.slice(0, 8)}</span>,
       sortValue: (t) => driverById(t.driverId)?.name ?? "",
       hideOnMobile: true,
     },
@@ -137,7 +295,7 @@ export function TripsView() {
       key: "distance",
       header: "Distance",
       align: "right",
-      cell: (t) => <span className="text-muted-foreground tnum">{t.distance} mi</span>,
+      cell: (t) => <span className="text-muted-foreground tnum">{t.distance} km</span>,
       sortValue: (t) => t.distance,
       hideOnMobile: true,
     },
@@ -163,7 +321,7 @@ export function TripsView() {
             <Button variant="outline" size="sm" className="h-8">
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" /> New Trip
             </Button>
           </>
@@ -229,14 +387,27 @@ export function TripsView() {
                 <DropdownMenuItem onClick={() => setSelected(t)}>
                   <Eye className="size-4" /> View details
                 </DropdownMenuItem>
+                {t.status === "scheduled" && (
+                  <DropdownMenuItem
+                    onClick={() => dispatchTrip.mutate(t.id)}
+                    disabled={dispatchTrip.isPending}
+                  >
+                    <Send className="size-4" /> Dispatch trip
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem>
                   <Pencil className="size-4" /> Edit trip
                 </DropdownMenuItem>
-                <DropdownMenuItem>Track live</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-danger focus:text-danger">
-                  <XCircle className="size-4" /> Cancel trip
-                </DropdownMenuItem>
+                {t.status !== "completed" && t.status !== "cancelled" && (
+                  <DropdownMenuItem
+                    className="text-danger focus:text-danger"
+                    onClick={() => cancelTrip.mutate(t.id)}
+                    disabled={cancelTrip.isPending}
+                  >
+                    <XCircle className="size-4" /> Cancel trip
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -244,6 +415,7 @@ export function TripsView() {
       </SectionCard>
 
       <TripDetailSheet trip={selected} onClose={() => setSelected(null)} />
+      <NewTripDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
@@ -287,8 +459,8 @@ function TripDetailSheet({
                 <RouteIcon className="size-5" />
               </div>
               <div>
-                <SheetTitle className="text-lg">{trip.id}</SheetTitle>
-                <SheetDescription>{trip.cargo} · {trip.weightLb.toLocaleString()} lb</SheetDescription>
+                <SheetTitle className="text-lg font-mono">{trip.id.slice(0, 8).toUpperCase()}</SheetTitle>
+                <SheetDescription>{trip.cargo} · {trip.weightLb.toLocaleString()} kg</SheetDescription>
               </div>
               <div>
                 <DomainStatusBadge status={trip.status} />
@@ -326,22 +498,19 @@ function TripDetailSheet({
                 Trip Details
               </h4>
               <DetailRow label="Vehicle" icon={<Package className="size-3.5" />}>
-                {vehicle?.plate} · {vehicle?.model}
+                {vehicle?.plate ?? trip.vehicleId?.slice(0, 8)} · {vehicle?.model}
               </DetailRow>
               <DetailRow label="Driver" icon={<MapPin className="size-3.5" />}>
-                {driver?.name}
+                {driver?.name ?? trip.driverId?.slice(0, 8)}
               </DetailRow>
               <DetailRow label="Departure" icon={<Clock className="size-3.5" />}>
-                {new Date(trip.departure).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                {trip.departure ? new Date(trip.departure).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}
               </DetailRow>
               <DetailRow label="ETA" icon={<Clock className="size-3.5" />}>
-                {new Date(trip.eta).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                {trip.eta ? new Date(trip.eta).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—"}
               </DetailRow>
               <DetailRow label="Distance" icon={<MapPin className="size-3.5" />}>
-                {trip.distance} miles
-              </DetailRow>
-              <DetailRow label="Cargo" icon={<Package className="size-3.5" />}>
-                {trip.cargo}
+                {trip.distance} km
               </DetailRow>
               <DetailRow label="Revenue" icon={<Package className="size-3.5" />}>
                 {formatCurrency(trip.revenue)}

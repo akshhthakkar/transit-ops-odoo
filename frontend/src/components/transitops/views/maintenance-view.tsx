@@ -24,12 +24,30 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "../page-header";
 import { SectionCard } from "../section-card";
 import { StatusBadge, DomainStatusBadge, type Tone } from "../status-badge";
@@ -37,7 +55,12 @@ import { FilterChips } from "../filter-chips";
 import { StatCard } from "../stat-card";
 import { DataTable, type Column } from "../tables/data-table";
 import { formatCurrency, vehicleById, type MaintenanceRecord } from "@/lib/transit-data";
-import { useMaintenance } from "@/hooks/queries";
+import {
+  useMaintenance,
+  useCreateMaintenance,
+  useCloseMaintenance,
+  useVehicles,
+} from "@/hooks/queries";
 
 const statusOptions = [
   { value: "all", label: "All" },
@@ -51,10 +74,141 @@ const priorityTone: Record<string, Tone> = {
   low: "neutral",
 };
 
+const MAINTENANCE_TYPES = [
+  "Preventive",
+  "Oil Change",
+  "Tire Rotation",
+  "Brake Service",
+  "Inspection",
+  "Engine Repair",
+  "Transmission",
+  "Reefer Unit",
+  "Other",
+];
+
+function ScheduleServiceDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const createMaintenance = useCreateMaintenance();
+  const { data: vehicles = [] } = useVehicles();
+
+  const [form, setForm] = React.useState({
+    vehicleId: "",
+    maintenanceType: "",
+    description: "",
+    priority: "",
+    cost: "",
+  });
+  const [error, setError] = React.useState<string | null>(null);
+
+  function set(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const { vehicleId, description, cost } = form;
+    if (!vehicleId || !description || !cost) {
+      setError("Vehicle, description, and cost are required.");
+      return;
+    }
+    try {
+      await createMaintenance.mutateAsync({
+        vehicleId,
+        maintenanceType: form.maintenanceType || undefined,
+        description: description.trim(),
+        priority: form.priority || undefined,
+        cost: Number(cost),
+      });
+      setForm({ vehicleId: "", maintenanceType: "", description: "", priority: "", cost: "" });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to schedule service.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Schedule Service</DialogTitle>
+          <DialogDescription>Log a new maintenance job. Vehicle status will be set to IN_SHOP.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="mveh">Vehicle *</Label>
+            <Select value={form.vehicleId} onValueChange={(v) => set("vehicleId", v)}>
+              <SelectTrigger id="mveh"><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+              <SelectContent>
+                {vehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.plate} — {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="mtype">Service Type</Label>
+              <Select value={form.maintenanceType} onValueChange={(v) => set("maintenanceType", v)}>
+                <SelectTrigger id="mtype"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {MAINTENANCE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mpriority">Priority</Label>
+              <Select value={form.priority} onValueChange={(v) => set("priority", v)}>
+                <SelectTrigger id="mpriority"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="mdesc">Description *</Label>
+            <Textarea
+              id="mdesc"
+              placeholder="Describe the maintenance work required…"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="mcost">Estimated Cost ($) *</Label>
+            <Input id="mcost" type="number" min="0" step="0.01" placeholder="500" value={form.cost} onChange={(e) => set("cost", e.target.value)} />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={createMaintenance.isPending}>
+              {createMaintenance.isPending ? "Scheduling…" : "Schedule Service"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MaintenanceView() {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState<MaintenanceRecord | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
   const { data: maintenance = [], isLoading } = useMaintenance();
+  const closeMaintenance = useCloseMaintenance();
 
   const filtered = React.useMemo(
     () =>
@@ -80,7 +234,7 @@ export function MaintenanceView() {
     {
       key: "id",
       header: "ID",
-      cell: (m) => <span className="font-medium text-foreground">{m.id}</span>,
+      cell: (m) => <span className="font-medium text-foreground font-mono text-xs">{m.id.slice(0, 8).toUpperCase()}</span>,
       sortValue: (m) => m.id,
     },
     {
@@ -88,11 +242,13 @@ export function MaintenanceView() {
       header: "Vehicle",
       cell: (m) => {
         const v = vehicleById(m.vehicleId);
-        return (
+        return v ? (
           <div>
-            <p className="font-medium text-foreground">{v?.plate}</p>
-            <p className="text-xs text-muted-foreground">{v?.model}</p>
+            <p className="font-medium text-foreground">{v.plate}</p>
+            <p className="text-xs text-muted-foreground">{v.model}</p>
           </div>
+        ) : (
+          <span className="text-xs text-muted-foreground font-mono">{m.vehicleId?.slice(0, 8)}</span>
         );
       },
       sortValue: (m) => vehicleById(m.vehicleId)?.plate ?? "",
@@ -122,7 +278,7 @@ export function MaintenanceView() {
     },
     {
       key: "scheduled",
-      header: "Scheduled",
+      header: "Logged",
       cell: (m) => <span className="text-muted-foreground tnum">{m.scheduled}</span>,
       sortValue: (m) => m.scheduled,
       hideOnMobile: true,
@@ -156,7 +312,7 @@ export function MaintenanceView() {
             <Button variant="outline" size="sm" className="h-8">
               <Download className="size-4" /> Export
             </Button>
-            <Button size="sm" className="h-8">
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" /> Schedule Service
             </Button>
           </>
@@ -223,7 +379,14 @@ export function MaintenanceView() {
                 <DropdownMenuItem>
                   <Pencil className="size-4" /> Edit record
                 </DropdownMenuItem>
-                <DropdownMenuItem>Mark complete</DropdownMenuItem>
+                {m.status === "in_progress" && (
+                  <DropdownMenuItem
+                    onClick={() => closeMaintenance.mutate(m.id)}
+                    disabled={closeMaintenance.isPending}
+                  >
+                    <CircleCheck className="size-4" /> Mark complete
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-danger focus:text-danger">
                   Cancel service
@@ -234,7 +397,13 @@ export function MaintenanceView() {
         />
       </SectionCard>
 
-      <MaintenanceDetailSheet item={selected} onClose={() => setSelected(null)} />
+      <MaintenanceDetailSheet
+        item={selected}
+        onClose={() => setSelected(null)}
+        onMarkComplete={(id) => closeMaintenance.mutate(id)}
+        isClosing={closeMaintenance.isPending}
+      />
+      <ScheduleServiceDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
@@ -262,9 +431,13 @@ function DetailRow({
 function MaintenanceDetailSheet({
   item,
   onClose,
+  onMarkComplete,
+  isClosing,
 }: {
   item: MaintenanceRecord | null;
   onClose: () => void;
+  onMarkComplete: (id: string) => void;
+  isClosing: boolean;
 }) {
   const vehicle = item ? vehicleById(item.vehicleId) : null;
   return (
@@ -277,8 +450,8 @@ function MaintenanceDetailSheet({
                 <Wrench className="size-5" />
               </div>
               <div>
-                <SheetTitle className="text-lg">{item.id}</SheetTitle>
-                <SheetDescription>{item.type} · {vehicle?.plate}</SheetDescription>
+                <SheetTitle className="text-lg font-mono">{item.id.slice(0, 8).toUpperCase()}</SheetTitle>
+                <SheetDescription>{item.type} · {vehicle?.plate ?? item.vehicleId?.slice(0, 8)}</SheetDescription>
               </div>
               <div className="flex gap-2">
                 <DomainStatusBadge status={item.status} />
@@ -298,12 +471,12 @@ function MaintenanceDetailSheet({
                 Service Details
               </h4>
               <DetailRow label="Vehicle" icon={<Wrench className="size-3.5" />}>
-                {vehicle?.plate} · {vehicle?.model}
+                {vehicle?.plate ?? item.vehicleId?.slice(0, 8)} · {vehicle?.model}
               </DetailRow>
               <DetailRow label="Service type" icon={<Wrench className="size-3.5" />}>
                 {item.type}
               </DetailRow>
-              <DetailRow label="Scheduled date" icon={<CalendarClock className="size-3.5" />}>
+              <DetailRow label="Logged date" icon={<CalendarClock className="size-3.5" />}>
                 {item.scheduled}
               </DetailRow>
               <DetailRow label="Technician" icon={<User className="size-3.5" />}>
@@ -318,9 +491,16 @@ function MaintenanceDetailSheet({
               <Button variant="outline" size="sm" className="flex-1">
                 <Pencil className="size-4" /> Edit
               </Button>
-              <Button size="sm" className="flex-1">
-                <CircleCheck className="size-4" /> Mark Complete
-              </Button>
+              {item.status === "in_progress" && (
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => { onMarkComplete(item.id); onClose(); }}
+                  disabled={isClosing}
+                >
+                  <CircleCheck className="size-4" /> Mark Complete
+                </Button>
+              )}
             </div>
           </>
         )}
