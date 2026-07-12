@@ -48,6 +48,8 @@ export const tripService = {
           driver: {
             select: { id: true, name: true },
           },
+          sourceLocation: true,
+          destinationLocation: true,
         },
       }),
     ]);
@@ -69,6 +71,8 @@ export const tripService = {
       include: {
         vehicle: true,
         driver: true,
+        sourceLocation: true,
+        destinationLocation: true,
         fuelLogs: {
           where: { deletedAt: null },
         },
@@ -88,13 +92,23 @@ export const tripService = {
   },
 
   async create(data: {
-    source: string;
-    destination: string;
+    sourceLocationId: string;
+    destinationLocationId: string;
     vehicleId: string;
     driverId: string;
     cargoWeight: number;
     plannedDistance: number;
   }) {
+    const sourceLoc = await prisma.location.findUnique({ where: { id: data.sourceLocationId } });
+    if (!sourceLoc) {
+      throw Object.assign(new Error('Source location not found'), { statusCode: 404 });
+    }
+
+    const destLoc = await prisma.location.findUnique({ where: { id: data.destinationLocationId } });
+    if (!destLoc) {
+      throw Object.assign(new Error('Destination location not found'), { statusCode: 404 });
+    }
+
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: data.vehicleId, deletedAt: null },
     });
@@ -180,7 +194,7 @@ export const tripService = {
         },
         include: { vehicle: true, driver: true },
       });
-    });
+    }, { timeout: 15000 });
   },
 
   async complete(
@@ -237,7 +251,7 @@ export const tripService = {
         },
         include: { vehicle: true, driver: true },
       });
-    });
+    }, { timeout: 15000 });
   },
 
   async cancel(id: string, reqUser: any) {
@@ -274,6 +288,6 @@ export const tripService = {
         },
         include: { vehicle: true, driver: true },
       });
-    });
+    }, { timeout: 15000 });
   },
 };

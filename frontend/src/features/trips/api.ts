@@ -19,3 +19,8 @@ export const tripsApi = {
   cancel: (id: string) =>
     apiClient.post(`/trips/${id}/cancel`).then((r) => r.data),
 };
+
+export const locationsApi = {
+  getAll: () =>
+    apiClient.get('/locations').then((r) => r.data),
+};

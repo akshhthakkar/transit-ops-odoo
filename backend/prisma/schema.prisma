@@ -171,6 +171,7 @@ model Vendor {
   updatedAt       DateTime         @updatedAt
 
   maintenanceLogs MaintenanceLog[]
+  fuelLogs        FuelLog[]        @relation("FuelLogVendor")
 }
 
 model Trip {
@@ -263,7 +264,8 @@ model FuelLog {
   liters          Float
   pricePerLiter   Decimal? @db.Decimal(10, 2)
   cost            Decimal  @db.Decimal(10, 2)
-  fuelStation     String?
+  vendorId        String?
+  vendor          Vendor?  @relation("FuelLogVendor", fields: [vendorId], references: [id], onDelete: Restrict)
   odometer        Float?
   date            DateTime @default(now())
 

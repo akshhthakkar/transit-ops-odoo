@@ -114,7 +114,7 @@ export function TripDetailPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-extrabold text-white">
-              {trip.source} ➔ {trip.destination}
+              {trip.sourceLocation?.name || 'N/A'} ➔ {trip.destinationLocation?.name || 'N/A'}
             </h1>
             <StatusBadge status={trip.status} />
           </div>

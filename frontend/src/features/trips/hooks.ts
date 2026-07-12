@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tripsApi } from './api';
+import { tripsApi, locationsApi } from './api';
 
 export const TRIPS_KEY = ['trips'] as const;
 
@@ -66,5 +66,12 @@ export function useCancelTrip() {
       qc.invalidateQueries({ queryKey: ['vehicles'] });
       qc.invalidateQueries({ queryKey: ['drivers'] });
     },
+  });
+}
+
+export function useLocations() {
+  return useQuery({
+    queryKey: ['locations'],
+    queryFn: locationsApi.getAll,
   });
 }

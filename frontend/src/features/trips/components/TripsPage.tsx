@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { useTrips, useCreateTrip } from '../hooks';
+import { useTrips, useCreateTrip, useLocations } from '../hooks';
 import { useAvailableVehicles } from '../../vehicles/hooks';
 import { useEligibleDrivers } from '../../drivers/hooks';
 import { useAuthStore } from '../../../store/auth.store';
@@ -12,8 +12,8 @@ import { StatusBadge } from '../../../components/ui/StatusBadge';
 export type TripStatus = 'DRAFT' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED';
 
 const createSchema = z.object({
-  source: z.string().min(1, 'Source is required'),
-  destination: z.string().min(1, 'Destination is required'),
+  sourceLocationId: z.string().uuid('Please select a source location'),
+  destinationLocationId: z.string().uuid('Please select a destination location'),
   vehicleId: z.string().uuid('Please select a vehicle'),
   driverId: z.string().uuid('Please select a driver'),
   cargoWeight: z.number().positive('Must be positive'),
@@ -41,6 +41,7 @@ export function TripsPage() {
 
   const { data: availableVehicles = [], isLoading: isLoadingVehicles } = useAvailableVehicles();
   const { data: eligibleDrivers = [], isLoading: isLoadingDrivers } = useEligibleDrivers();
+  const { data: locations = [], isLoading: isLoadingLocations } = useLocations();
 
   // Create Form
   const {
@@ -87,7 +88,7 @@ export function TripsPage() {
     {
       key: 'route',
       header: 'Route',
-      render: (row: any) => `${row.source} ➔ ${row.destination}`,
+      render: (row: any) => `${row.sourceLocation?.name || 'N/A'} ➔ ${row.destinationLocation?.name || 'N/A'}`,
     },
     {
       key: 'vehicle',
@@ -214,13 +215,20 @@ export function TripsPage() {
                   <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                     Source Location
                   </label>
-                  <input
-                    {...register('source')}
-                    placeholder="e.g. Warehouse 4"
+                  <select
+                    {...register('sourceLocationId')}
+                    disabled={isLoadingLocations}
                     className="w-full bg-gray-950/80 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500 transition-colors"
-                  />
-                  {errors.source && (
-                    <p className="text-rose-500 text-[10px] mt-1">{errors.source.message}</p>
+                  >
+                    <option value="">Select source...</option>
+                    {locations.map((loc: any) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.sourceLocationId && (
+                    <p className="text-rose-500 text-[10px] mt-1">{errors.sourceLocationId.message}</p>
                   )}
                 </div>
 
@@ -228,13 +236,20 @@ export function TripsPage() {
                   <label className="block text-xs font-semibold text-gray-300 mb-1.5">
                     Destination Location
                   </label>
-                  <input
-                    {...register('destination')}
-                    placeholder="e.g. Client Site"
+                  <select
+                    {...register('destinationLocationId')}
+                    disabled={isLoadingLocations}
                     className="w-full bg-gray-950/80 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500 transition-colors"
-                  />
-                  {errors.destination && (
-                    <p className="text-rose-500 text-[10px] mt-1">{errors.destination.message}</p>
+                  >
+                    <option value="">Select destination...</option>
+                    {locations.map((loc: any) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.destinationLocationId && (
+                    <p className="text-rose-500 text-[10px] mt-1">{errors.destinationLocationId.message}</p>
                   )}
                 </div>
               </div>
